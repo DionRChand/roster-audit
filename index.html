@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Chandler Compliance Hub</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
 <style>
   :root{
     --navy: #1F2E3F;
@@ -550,8 +550,10 @@
 
       <aside class="sidebar">
         <div class="db-panel">
-          <h3><span class="conn-dot connecting" id="connDot"></span> Database connection</h3>
-          <p class="sub" id="connLabel">Connecting to chandler-roster…</p>
+        <div class="db-panel">
+          <h3><span class="conn-dot off" id="connDot"></span> OneDrive connection</h3>
+          <p class="sub" id="connLabel">Not connected</p>
+          <button class="btn ghost" id="connectBtn" type="button">Connect to OneDrive</button>
         </div>
 
         <div class="db-panel hidden" id="browsePanel">
@@ -820,13 +822,24 @@
   const searchBox = document.getElementById('searchBox');
   const SHORT_SHIFT_MINUTES = 4 * 60;
 
-  // ---------- Supabase config (hardcoded project) ----------
-  // Publishable/anon key — safe to ship client-side, access is governed by RLS policies on the table.
-  const SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
+  // ---------- Microsoft Graph / OneDrive config ----------
+  // Fill in after registering an app in Entra ID (Azure AD) — see the setup notes you were given.
+  const MSAL_CLIENT_ID    = '7589d2f7-9ba3-486d-9b73-2e174a1a7a2a';        // Application (client) ID
+  const MSAL_TENANT_ID    = 'a4b57a82-e6bf-4b87-932a-fc18f650de59';        // Directory (tenant) ID — or leave 'organizations' below
+  const MSAL_AUTHORITY    = `https://login.microsoftonline.com/${MSAL_TENANT_ID}`;
+  const MSAL_REDIRECT_URI = window.location.href.split('#')[0].split('?')[0]; // must exactly match the SPA redirect URI registered on the app
+  const GRAPH_SCOPES      = ['Files.ReadWrite'];
+  const GRAPH_BASE        = 'https://graph.microsoft.com/v1.0';
+  const EXCEL_FILE_PATH   = 'ChandlerRosterDB.xlsx'; // created automatically in the signed-in user's OneDrive root on first connect
+  const TABLE_SHIFTS      = 'RosterShifts';
+  const TABLE_HISTORY     = 'RosterHistory';
+  // Column order written to/read from the Excel tables — single source of truth for both tables.
+  const SHIFT_COLUMNS = ['employee','employee_mobile','shift_date','shift_day','client','department','position','shift_start','shift_end','clock_in','clock_out','duration_minutes','flags','corrected_clock_in','corrected_clock_out','remarks','updated_at'];
+  const HISTORY_COLUMNS = ['employee','shift_date','old_clock_in','old_clock_out','new_clock_in','new_clock_out','old_flags','new_flags','changed_at'];
 
   const connDot = document.getElementById('connDot');
   const connLabel = document.getElementById('connLabel');
+  const connectBtn = document.getElementById('connectBtn');
   const browsePanel = document.getElementById('browsePanel');
   const dateRangeField = document.getElementById('dateRangeField');
   const dateRangeLabel = document.getElementById('dateRangeLabel');
@@ -844,7 +857,11 @@
   const syncStatusText = document.getElementById('syncStatusText');
   const syncBtn = document.getElementById('syncBtn');
 
-  let sb = null;             // supabase client, once connected
+  let msalApp = null;         // MSAL PublicClientApplication, once initialized
+  let graphAccount = null;    // signed-in account object
+  let graphToken = null;      // cached access token
+  let workbookItemId = null;  // OneDrive driveItem id of the Excel workbook, once connected
+  let shiftRowIndexMap = new Map(); // rowKey -> last-read Excel table row (with its row index), for targeted updates
   let dataSource = null;     // 'file' | 'db'
 
   let allRows = [];       // every parsed row with computed flags
@@ -1099,27 +1116,132 @@
     return '';
   }
 
-  // ---------- Supabase: auto-connect on load ----------
-  async function autoConnect(){
-    connDot.className = 'conn-dot connecting';
-    connLabel.textContent = 'Connecting to chandler-roster…';
+  // ---------- Microsoft Graph: sign-in, token, and workbook bootstrap ----------
+  function initMsal(){
+    msalApp = new msal.PublicClientApplication({
+      auth: { clientId: MSAL_CLIENT_ID, authority: MSAL_AUTHORITY, redirectUri: MSAL_REDIRECT_URI },
+      cache: { cacheLocation: 'localStorage' }
+    });
+  }
+
+  async function ensureGraphToken(){
+    const req = { scopes: GRAPH_SCOPES, account: graphAccount };
     try{
-      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      // sanity check: a lightweight query that only succeeds if the table + policy exist
-      const { error } = await client.from('roster_shifts').select('id', { count: 'exact', head: true });
-      if (error) throw error;
-      sb = client;
-      connDot.className = 'conn-dot on';
-      connLabel.textContent = 'Connected to chandler-roster';
-      browsePanel.classList.remove('hidden');
+      const res = await msalApp.acquireTokenSilent(req);
+      graphToken = res.accessToken;
     }catch(err){
-      sb = null;
+      const res = await msalApp.acquireTokenPopup(req);
+      graphToken = res.accessToken;
+    }
+  }
+
+  // JSON request helper for Graph. Not used for the raw file upload (which needs a binary body).
+  async function graphFetch(path, options={}){
+    await ensureGraphToken();
+    const res = await fetch(`${GRAPH_BASE}${path}`, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${graphToken}`,
+        'Content-Type': 'application/json',
+        ...(options.headers||{})
+      }
+    });
+    if (!res.ok){
+      const text = await res.text().catch(()=> '');
+      throw new Error(`Graph ${options.method||'GET'} ${path.split('?')[0]} failed (${res.status}): ${text.slice(0,200)}`);
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  }
+
+  function colLetter(n){ // 1 -> A, 27 -> AA, ...
+    let s='';
+    while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); }
+    return s;
+  }
+
+  async function ensureTable(sheetName, columns){
+    const tables = await graphFetch(`/me/drive/items/${workbookItemId}/workbook/worksheets('${sheetName}')/tables`);
+    if (tables.value && tables.value.length) return; // already there
+    const lastCol = colLetter(columns.length);
+    await graphFetch(`/me/drive/items/${workbookItemId}/workbook/worksheets('${sheetName}')/tables/add`, {
+      method:'POST',
+      body: JSON.stringify({ address: `A1:${lastCol}1`, hasHeaders:true })
+    });
+  }
+
+  async function ensureWorkbook(){
+    try{
+      const item = await graphFetch(`/me/drive/root:/${encodeURIComponent(EXCEL_FILE_PATH)}`);
+      workbookItemId = item.id;
+    }catch(err){
+      // File doesn't exist yet — build a blank workbook with both header rows using the
+      // SheetJS library already loaded on this page, then upload it as the starting file.
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([SHIFT_COLUMNS]), TABLE_SHIFTS);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([HISTORY_COLUMNS]), TABLE_HISTORY);
+      const bin = XLSX.write(wb, { bookType:'xlsx', type:'array' });
+      await ensureGraphToken();
+      const uploadRes = await fetch(`${GRAPH_BASE}/me/drive/root:/${encodeURIComponent(EXCEL_FILE_PATH)}:/content`, {
+        method:'PUT',
+        headers:{ 'Authorization': `Bearer ${graphToken}`, 'Content-Type':'application/octet-stream' },
+        body: bin
+      });
+      if (!uploadRes.ok) throw new Error('Could not create workbook in OneDrive (' + uploadRes.status + ')');
+      const item = await uploadRes.json();
+      workbookItemId = item.id;
+    }
+    await ensureTable(TABLE_SHIFTS, SHIFT_COLUMNS);
+    await ensureTable(TABLE_HISTORY, HISTORY_COLUMNS);
+  }
+
+  async function connectOneDrive(){
+    connDot.className = 'conn-dot connecting';
+    connLabel.textContent = 'Connecting to OneDrive…';
+    try{
+      const loginResp = await msalApp.loginPopup({ scopes: GRAPH_SCOPES });
+      graphAccount = loginResp.account;
+      await ensureGraphToken();
+      await ensureWorkbook();
+      connDot.className = 'conn-dot on';
+      connLabel.textContent = `Connected as ${graphAccount.username}`;
+      browsePanel.classList.remove('hidden');
+      connectBtn.classList.add('hidden');
+    }catch(err){
+      workbookItemId = null;
       connDot.className = 'conn-dot off';
-      connLabel.textContent = 'Connection failed — check the table exists and try reloading';
+      connLabel.textContent = 'Connection failed — ' + (err.message || 'unknown error');
       console.error(err);
     }
   }
-  autoConnect();
+
+  // On page load, silently restore a prior session if one exists — no popup unless the
+  // person clicks "Connect to OneDrive" themselves (browsers block unsolicited popups anyway).
+  async function restoreOneDriveSession(){
+    try{ await msalApp.handleRedirectPromise(); }catch(e){ console.error(e); }
+    const accounts = msalApp.getAllAccounts();
+    if (!accounts.length) return;
+    graphAccount = accounts[0];
+    connDot.className = 'conn-dot connecting';
+    connLabel.textContent = 'Reconnecting to OneDrive…';
+    try{
+      await ensureGraphToken();
+      await ensureWorkbook();
+      connDot.className = 'conn-dot on';
+      connLabel.textContent = `Connected as ${graphAccount.username}`;
+      browsePanel.classList.remove('hidden');
+      connectBtn.classList.add('hidden');
+    }catch(err){
+      workbookItemId = null;
+      connDot.className = 'conn-dot off';
+      connLabel.textContent = 'Reconnect failed — click Connect to sign in again';
+      console.error(err);
+    }
+  }
+
+  initMsal();
+  restoreOneDriveSession();
+  connectBtn.addEventListener('click', connectOneDrive);
 
   // ---------- file handling ----------
   dropzone.addEventListener('click', () => fileInput.click());
@@ -1227,11 +1349,11 @@
     render();
     topStatus.textContent = allRows.length + ' shifts loaded from "' + sheetName + '"';
 
-    // Auto-sync to the database as soon as a file is parsed.
-    if (sb) {
+    // Auto-sync to OneDrive as soon as a file is parsed.
+    if (workbookItemId) {
       syncToDatabase();
     } else {
-      setSyncStatus('warn', 'Not synced — database isn\u2019t connected yet.', false);
+      setSyncStatus('warn', 'Not synced — OneDrive isn\u2019t connected yet.', false);
     }
   }
 
@@ -1334,6 +1456,71 @@
     return String(s).replace(/["\\]/g, '\\$&');
   }
 
+  // ---------- Excel table read/write helpers ----------
+  // Reads every row of a table, tagging each with its table row index (needed to target
+  // a PATCH at that exact row later). Handles pagination via @odata.nextLink.
+  async function readTableRows(sheetName, columns){
+    let path = `/me/drive/items/${workbookItemId}/workbook/worksheets('${sheetName}')/tables('${sheetName}')/rows`;
+    const out = [];
+    while (path){
+      const data = await graphFetch(path);
+      for (const r of (data.value || [])){
+        const obj = { _rowIndex: r.index };
+        (r.values[0] || []).forEach((v,i) => { if (columns[i]) obj[columns[i]] = v; });
+        out.push(obj);
+      }
+      path = data['@odata.nextLink'] ? data['@odata.nextLink'].replace(GRAPH_BASE, '') : null;
+    }
+    return out;
+  }
+
+  function shiftFieldValue(r, col){
+    switch(col){
+      case 'employee': return r.employee || '';
+      case 'employee_mobile': return r.employeeMobile || '';
+      case 'shift_date': return r.shiftDateISO || '';
+      case 'shift_day': return r.shiftDay || '';
+      case 'client': return r.client || '';
+      case 'department': return r.department || '';
+      case 'position': return r.position || '';
+      case 'shift_start': return r.shiftStart || '';
+      case 'shift_end': return r.shiftEnd || '';
+      case 'clock_in': return r.clockIn || '';
+      case 'clock_out': return r.clockOut || '';
+      case 'duration_minutes': return (r.duration === null || r.duration === undefined) ? '' : r.duration;
+      case 'flags': return (r.flags || []).join(',');
+      case 'corrected_clock_in': return r.correctedIn || '';
+      case 'corrected_clock_out': return r.correctedOut || '';
+      case 'remarks': return r.remarks || '';
+      case 'updated_at': return new Date().toISOString();
+      default: return '';
+    }
+  }
+
+  function historyFieldValue(r, existingRow, col){
+    switch(col){
+      case 'employee': return r.employee || '';
+      case 'shift_date': return r.shiftDateISO || '';
+      case 'old_clock_in': return existingRow.clock_in || '';
+      case 'old_clock_out': return existingRow.clock_out || '';
+      case 'new_clock_in': return r.clockIn || '';
+      case 'new_clock_out': return r.clockOut || '';
+      case 'old_flags': return existingRow.flags || '';
+      case 'new_flags': return (r.flags || []).join(',');
+      case 'changed_at': return new Date().toISOString();
+      default: return '';
+    }
+  }
+
+  // Looks up a row's current Excel table index by its key, using the cache from the last
+  // full read where possible, refreshing from the workbook if the row isn't cached yet.
+  async function findExistingShiftRow(key){
+    if (shiftRowIndexMap.has(key)) return shiftRowIndexMap.get(key);
+    const rows = await readTableRows(TABLE_SHIFTS, SHIFT_COLUMNS);
+    shiftRowIndexMap = new Map(rows.map(r => [`${r.employee}|${r.shift_date}|${r.shift_start}`, r]));
+    return shiftRowIndexMap.get(key);
+  }
+
   async function saveCorrectionField(row, field, value, badge){
     row[field] = value;
 
@@ -1341,9 +1528,9 @@
     badge.className = 'cell-save-badge saving show';
     badge.innerHTML = '<span class="mini-spinner"></span> Saving…';
 
-    if (!sb){
+    if (!workbookItemId){
       badge.className = 'cell-save-badge warn show';
-      badge.textContent = 'Saved locally — DB not connected';
+      badge.textContent = 'Saved locally — OneDrive not connected';
       if (field === 'correctedIn' || field === 'correctedOut') refreshRowVisual(row);
       return;
     }
@@ -1353,18 +1540,22 @@
       return;
     }
 
-    const dbField = field === 'correctedIn' ? 'corrected_clock_in' : field === 'correctedOut' ? 'corrected_clock_out' : 'remarks';
-    const payload = {
-      employee: row.employee,
-      shift_date: row.shiftDateISO,
-      shift_start: row.shiftStart,
-      [dbField]: value || null,
-      updated_at: new Date().toISOString()
-    };
-
     try{
-      const { error } = await sb.from('roster_shifts').upsert([payload], { onConflict: 'employee,shift_date,shift_start' });
-      if (error) throw error;
+      const key = rowKey(row);
+      const existing = await findExistingShiftRow(key);
+      const rowValues = SHIFT_COLUMNS.map(c => shiftFieldValue(row, c));
+      if (existing){
+        await graphFetch(`/me/drive/items/${workbookItemId}/workbook/worksheets('${TABLE_SHIFTS}')/tables('${TABLE_SHIFTS}')/rows/itemAt(index=${existing._rowIndex})`, {
+          method:'PATCH',
+          body: JSON.stringify({ values: [rowValues] })
+        });
+      } else {
+        await graphFetch(`/me/drive/items/${workbookItemId}/workbook/worksheets('${TABLE_SHIFTS}')/tables('${TABLE_SHIFTS}')/rows/add`, {
+          method:'POST',
+          body: JSON.stringify({ values: [rowValues] })
+        });
+        shiftRowIndexMap = new Map(); // force a refresh next time so the new row's index is picked up
+      }
       badge.className = 'cell-save-badge success show';
       badge.textContent = 'Saved';
       setTimeout(() => { badge.classList.remove('show'); }, 1800);
@@ -1380,30 +1571,29 @@
     if (allRows.length) syncToDatabase();
   });
 
-  // ---------- Supabase: sync current data to database ----------
+  // ---------- Microsoft Graph: sync current data to the OneDrive workbook ----------
   async function syncToDatabase(){
-    if (!sb || !allRows.length) return;
+
+    if (!workbookItemId || !allRows.length) return;
     syncBtn.disabled = true;
     setSyncStatus('syncing', `Syncing ${allRows.length} shifts to the database…`, false);
 
     try{
       const prepared = allRows.filter(r => r.shiftDateISO && r.employee && r.shiftStart);
       const skipped = allRows.length - prepared.length;
-      const dates = [...new Set(prepared.map(r => r.shiftDateISO))];
 
-      const { data: existing, error: fetchErr } = await sb
-        .from('roster_shifts')
-        .select('*')
-        .in('shift_date', dates);
-      if (fetchErr) throw fetchErr;
-
+      // One full read of the shifts table gives us every existing row (with its table
+      // index) so we can tell new vs. changed vs. unchanged, and reuse the same cache
+      // saveCorrectionField relies on for targeted PATCHes later.
+      const existingRows = await readTableRows(TABLE_SHIFTS, SHIFT_COLUMNS);
       const existingMap = new Map();
-      for (const row of existing){
+      for (const row of existingRows){
         existingMap.set(`${row.employee}|${row.shift_date}|${row.shift_start}`, row);
       }
+      shiftRowIndexMap = existingMap;
 
-      // Pull forward any corrections/remarks already saved in the database so they show up
-      // after this sync, and so this sync doesn't wipe them out when it upserts.
+      // Pull forward any corrections/remarks already saved in the workbook so they show up
+      // after this sync, and so this sync doesn't wipe them out when it writes rows back.
       for (const r of prepared){
         const existingRow = existingMap.get(rowKey(r));
         if (existingRow){
@@ -1413,47 +1603,26 @@
         }
       }
 
-      const toUpsert = [];
-      const historyRows = [];
+      const newRowValues = [];
+      const historyRowValues = [];
       let countNew = 0, countReplaced = 0, countUnchanged = 0;
 
       for (const r of prepared){
-        const key = `${r.employee}|${r.shiftDateISO}|${r.shiftStart}`;
+        const key = rowKey(r);
         const existingRow = existingMap.get(key);
-        const payload = {
-          employee: r.employee,
-          employee_mobile: r.employeeMobile || null,
-          shift_date: r.shiftDateISO,
-          shift_day: r.shiftDay || null,
-          client: r.client || null,
-          department: r.department || null,
-          position: r.position || null,
-          shift_start: r.shiftStart,
-          shift_end: r.shiftEnd || null,
-          clock_in: r.clockIn || null,
-          clock_out: r.clockOut || null,
-          duration_minutes: r.duration,
-          flags: r.flags,
-          updated_at: new Date().toISOString()
-        };
+        const rowValues = SHIFT_COLUMNS.map(c => shiftFieldValue(r, c));
+
         if (!existingRow){
-          toUpsert.push(payload);
+          newRowValues.push(rowValues);
           countNew++;
         } else {
           const changed = (existingRow.clock_in || '') !== (r.clockIn || '') || (existingRow.clock_out || '') !== (r.clockOut || '');
           if (changed){
-            historyRows.push({
-              shift_id: existingRow.id,
-              employee: r.employee,
-              shift_date: r.shiftDateISO,
-              old_clock_in: existingRow.clock_in,
-              old_clock_out: existingRow.clock_out,
-              new_clock_in: r.clockIn || null,
-              new_clock_out: r.clockOut || null,
-              old_flags: existingRow.flags,
-              new_flags: r.flags
+            historyRowValues.push(HISTORY_COLUMNS.map(c => historyFieldValue(r, existingRow, c)));
+            await graphFetch(`/me/drive/items/${workbookItemId}/workbook/worksheets('${TABLE_SHIFTS}')/tables('${TABLE_SHIFTS}')/rows/itemAt(index=${existingRow._rowIndex})`, {
+              method:'PATCH',
+              body: JSON.stringify({ values: [rowValues] })
             });
-            toUpsert.push(payload);
             countReplaced++;
           } else {
             countUnchanged++;
@@ -1461,14 +1630,19 @@
         }
       }
 
-      if (historyRows.length){
-        const { error: histErr } = await sb.from('roster_shift_history').insert(historyRows);
-        if (histErr) throw histErr;
+      if (newRowValues.length){
+        await graphFetch(`/me/drive/items/${workbookItemId}/workbook/worksheets('${TABLE_SHIFTS}')/tables('${TABLE_SHIFTS}')/rows/add`, {
+          method:'POST',
+          body: JSON.stringify({ values: newRowValues })
+        });
+        shiftRowIndexMap = new Map(); // force a refresh next time so the new rows' indices are picked up
       }
 
-      if (toUpsert.length){
-        const { error: upsertErr } = await sb.from('roster_shifts').upsert(toUpsert, { onConflict: 'employee,shift_date,shift_start' });
-        if (upsertErr) throw upsertErr;
+      if (historyRowValues.length){
+        await graphFetch(`/me/drive/items/${workbookItemId}/workbook/worksheets('${TABLE_HISTORY}')/tables('${TABLE_HISTORY}')/rows/add`, {
+          method:'POST',
+          body: JSON.stringify({ values: historyRowValues })
+        });
       }
 
       const parts = [`${countNew} new`, `${countReplaced} updated`, `${countUnchanged} unchanged`];
@@ -1485,9 +1659,9 @@
     }
   }
 
-  // ---------- Supabase: browse by date range ----------
+  // ---------- Microsoft Graph: browse by date range ----------
   loadRangeBtn.addEventListener('click', async () => {
-    if (!sb) return;
+    if (!workbookItemId) return;
     const from = drStart;
     const to = drEnd || drStart;
     if (!from || !to){
@@ -1497,19 +1671,22 @@
     loadRangeBtn.disabled = true;
     loadRangeBtn.textContent = 'Loading…';
     try{
-      const { data, error } = await sb
-        .from('roster_shifts')
-        .select('*')
-        .gte('shift_date', from)
-        .lte('shift_date', to)
-        .order('shift_date', { ascending: true })
-        .order('employee', { ascending: true });
-      if (error) throw error;
+      // Excel tables have no server-side filter, so read every row once and filter/sort
+      // client-side. Refresh the shared row-index cache at the same time so any inline
+      // corrections made after this load can PATCH the right row straight away.
+      const rows = await readTableRows(TABLE_SHIFTS, SHIFT_COLUMNS);
+      shiftRowIndexMap = new Map(rows.map(r => [`${r.employee}|${r.shift_date}|${r.shift_start}`, r]));
 
-      allRows = data.map(row => ({
+      const inRange = rows.filter(r => r.shift_date && r.shift_date >= from && r.shift_date <= to);
+      inRange.sort((a, b) => {
+        if (a.shift_date !== b.shift_date) return a.shift_date < b.shift_date ? -1 : 1;
+        return (a.employee || '').localeCompare(b.employee || '');
+      });
+
+      allRows = inRange.map(row => ({
         shiftDay: row.shift_day || '',
         shiftDate: row.shift_date || '',
-        shiftDateISO: row.shift_date,
+        shiftDateISO: row.shift_date || '',
         client: row.client || '',
         department: row.department || '',
         employee: row.employee || '',
@@ -1519,8 +1696,8 @@
         shiftEnd: row.shift_end || '',
         clockIn: row.clock_in || '',
         clockOut: row.clock_out || '',
-        duration: row.duration_minutes,
-        flags: row.flags || [],
+        duration: (row.duration_minutes === '' || row.duration_minutes === undefined) ? null : row.duration_minutes,
+        flags: row.flags ? String(row.flags).split(',').filter(Boolean) : [],
         correctedIn: row.corrected_clock_in || '',
         correctedOut: row.corrected_clock_out || '',
         remarks: row.remarks || ''
