@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chandler Roster Audit — Clock In/Out Checker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --navy: #1F2E3F;
+    --navy-deep: #16212D;
+    --navy-mid: #2C4055;
+    --teal: #0CBBC1;
+    --teal-soft: #0CBBC126;
+    --amber: #E8A33D;
+    --coral: #E15B5B;
+    --paper: #F5F7F9;
+    --card: #FFFFFF;
+    --line: #E3E8EC;
+    --text: #1B2530;
+    --text-soft: #5B6B7A;
+    --radius: 10px;
+    --shadow: 0 1px 2px rgba(22,33,45,0.06), 0 8px 24px -12px rgba(22,33,45,0.12);
+  }
+  * { box-sizing: border-box; }
+  body{
+    margin:0;
+    font-family: "Segoe UI", "Segoe UI Variable", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+    background: var(--paper);
+    color: var(--text);
+    min-height:100vh;
+  }
+  .topbar{
+    background: linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+    color:#fff;
+    padding: 22px 32px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    box-shadow: var(--shadow);
+  }
+  .brand{ display:flex; align-items:center; gap:14px; }
+  .brand-mark{
+    width:38px;height:38px;border-radius:9px;
+    background: linear-gradient(135deg, var(--teal), #0899a0);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:15px;letter-spacing:0.5px;
+    box-shadow: 0 4px 10px -2px rgba(12,187,193,0.5);
+  }
+  .brand-text h1{ margin:0; font-size:17px; font-weight:600; letter-spacing:0.1px; }
+  .brand-text p{ margin:2px 0 0; font-size:12px; color:#B7C4D1; }
+  .topbar .status{ font-size:12px; color:#9FB0BF; }
+
+  .wrap{ max-width:1180px; margin:0 auto; padding: 28px 24px 60px; }
+
+  .dropzone{
+    background: var(--card);
+    border: 1.5px dashed #C7D2DA;
+    border-radius: var(--radius);
+    padding: 44px 28px;
+    text-align:center;
+    transition: border-color .15s ease, background .15s ease;
+    box-shadow: var(--shadow);
+    cursor:pointer;
+  }
+  .dropzone.drag{ border-color: var(--teal); background: var(--teal-soft); }
+  .dropzone h2{ margin: 4px 0 6px; font-size:16px; font-weight:600; }
+  .dropzone p{ margin:0; color: var(--text-soft); font-size:13.5px; }
+  .dz-icon{
+    width:52px;height:52px;margin:0 auto 14px;border-radius:12px;
+    background: var(--teal-soft);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    background: var(--navy);
+    color:#fff; border:none; border-radius:8px;
+    padding: 9px 16px; font-size:13.5px; font-weight:600;
+    cursor:pointer; transition: background .15s ease, transform .1s ease;
+  }
+  .btn:hover{ background: var(--navy-mid); }
+  .btn:active{ transform: translateY(1px); }
+  .btn.teal{ background: var(--teal); color: var(--navy-deep); }
+  .btn.teal:hover{ background: #0aa6ab; }
+  .btn.ghost{ background:transparent; color: var(--navy); border:1.5px solid var(--line); }
+  .btn.ghost:hover{ background:#EEF2F5; }
+  .btn:disabled{ opacity:.45; cursor:not-allowed; }
+
+  #fileInput{ display:none; }
+
+  .filename-pill{
+    display:inline-flex; align-items:center; gap:8px;
+    background:#EEF2F5; border-radius:20px; padding:5px 12px 5px 6px;
+    font-size:12.5px; color: var(--navy); margin-top:14px;
+  }
+  .filename-pill .dot{ width:7px;height:7px;border-radius:50%; background:#3BB273; }
+
+  .hidden{ display:none !important; }
+
+  .summary{
+    display:grid; grid-template-columns: repeat(5, 1fr); gap:14px; margin-top:26px;
+  }
+  .stat{
+    background: var(--card); border-radius: var(--radius); padding:16px 18px;
+    box-shadow: var(--shadow); border-top: 3px solid var(--line);
+  }
+  .stat.total{ border-top-color: var(--navy); }
+  .stat.missing{ border-top-color: var(--coral); }
+  .stat.equal{ border-top-color: var(--amber); }
+  .stat.short{ border-top-color: #8E6BC7; }
+  .stat.clean{ border-top-color: #3BB273; }
+  .stat .num{ font-size:26px; font-weight:700; color: var(--navy-deep); line-height:1; }
+  .stat .label{ margin-top:6px; font-size:12px; color: var(--text-soft); font-weight:600; text-transform:uppercase; letter-spacing:.4px; }
+
+  .toolbar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-top:24px; gap:12px; flex-wrap:wrap;
+  }
+  .filters{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .chip{
+    border:1.5px solid var(--line); background:#fff; border-radius:20px;
+    padding:6px 13px; font-size:12.5px; font-weight:600; color: var(--text-soft);
+    cursor:pointer; user-select:none; transition: all .12s ease;
+  }
+  .chip.active{ background: var(--navy); color:#fff; border-color: var(--navy); }
+  .search{
+    border:1.5px solid var(--line); border-radius:8px; padding:8px 12px;
+    font-size:13px; width:220px; background:#fff; color: var(--text);
+  }
+  .search:focus{ outline:none; border-color: var(--teal); }
+  .toolbar-right{ display:flex; gap:8px; }
+
+  table{ width:100%; border-collapse: collapse; margin-top:16px; background:#fff; border-radius: var(--radius); overflow:hidden; box-shadow: var(--shadow); }
+  thead th{
+    text-align:left; font-size:11.5px; letter-spacing:.4px; text-transform:uppercase;
+    color: var(--text-soft); background:#F0F3F5; padding:11px 14px; border-bottom:1px solid var(--line);
+    white-space:nowrap;
+  }
+  tbody td{ padding:11px 14px; font-size:13px; border-bottom:1px solid #EEF1F3; vertical-align:top; }
+  tbody tr:hover{ background:#FAFCFD; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr.row-missing{ background:#FBEAEA; }
+  tbody tr.row-missing:hover{ background:#F7DCDC; }
+  tbody tr.row-short{ background:#E8F6ED; }
+  tbody tr.row-short:hover{ background:#D9F0E1; }
+  tbody tr.row-equal{ background:#FCF3E0; }
+  tbody tr.row-equal:hover{ background:#F9EACB; }
+  .tag{
+    display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;
+    margin:2px 4px 2px 0; letter-spacing:.2px;
+  }
+  .tag.missing{ background:#FCEBEB; color:#C13D3D; }
+  .tag.equal{ background:#FBF1DF; color:#B57A15; }
+  .tag.short{ background:#F1EBFA; color:#6B4A9E; }
+  .mono{ font-variant-numeric: tabular-nums; }
+  .muted{ color:#A6B2BC; }
+
+  .empty-state{
+    text-align:center; padding:60px 20px; color: var(--text-soft); font-size:14px;
+  }
+  .footer-note{ margin-top:18px; font-size:12px; color:#93A3AF; text-align:center; }
+
+  .db-panel{
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 18px 20px; margin-bottom: 18px;
+  }
+  .db-panel h3{ margin:0 0 3px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; }
+  .db-panel .sub{ margin:0 0 14px; font-size:12px; color: var(--text-soft); }
+  .db-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .db-row input[type=date]{
+    border:1.5px solid var(--line); border-radius:8px; padding:8px 11px; font-size:13px;
+    background:#fff; color:var(--text); font-family:inherit;
+  }
+  .conn-dot{ width:9px;height:9px;border-radius:50%; background:#C7CFD6; flex-shrink:0; transition: background .2s ease; }
+  .conn-dot.on{ background:#3BB273; box-shadow: 0 0 0 3px rgba(59,178,115,0.18); }
+  .conn-dot.off{ background:#E15B5B; }
+  .conn-dot.connecting{ background:#E8A33D; animation: dot-pulse 1s ease-in-out infinite; }
+  @keyframes dot-pulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  .conn-label{ font-size:12.5px; color: var(--text-soft); font-weight:600; }
+
+  .sync-status{
+    display:flex; align-items:center; gap:10px;
+    margin-top:14px; padding:12px 16px; border-radius:10px;
+    background:#EEF2F5; color: var(--navy); font-size:13px; font-weight:600;
+    max-height:0; opacity:0; overflow:hidden; padding-top:0; padding-bottom:0;
+    transition: max-height .3s ease, opacity .25s ease, background .3s ease, color .3s ease, padding .3s ease;
+  }
+  .sync-status.show{ max-height:60px; opacity:1; padding-top:12px; padding-bottom:12px; }
+  .sync-status.syncing{ background:#E7F1FD; color:#1B5FA8; }
+  .sync-status.success{ background:#EAF7EE; color:#256B41; }
+  .sync-status.warn{ background:#FCF3E0; color:#8A5A00; }
+  .sync-status.error{ background:#FBEAEA; color:#B23B3B; }
+  .sync-spinner{
+    width:16px;height:16px;border-radius:50%; flex-shrink:0;
+    border:2.5px solid rgba(0,0,0,0.15); border-top-color: currentColor;
+    animation: sync-spin .7s linear infinite;
+  }
+  @keyframes sync-spin{ to{ transform: rotate(360deg); } }
+  .sync-check{ width:17px; height:17px; flex-shrink:0; }
+  .sync-check .ring{ opacity:0.22; }
+  .sync-check .mark{
+    stroke-dasharray: 20; stroke-dashoffset: 20;
+    animation: sync-draw .35s ease forwards .12s;
+  }
+  @keyframes sync-draw{ to{ stroke-dashoffset:0; } }
+  .sync-warn-icon, .sync-error-icon{ width:17px; height:17px; flex-shrink:0; }
+
+  @media (max-width: 900px){
+    .summary{ grid-template-columns: repeat(2,1fr); }
+    .search{ width:100%; }
+  }
+
+  /* ---------- Login screen (Gmail-inspired sign-in) ---------- */
+  .login-screen{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    background:#fff;
+    font-family: "Google Sans", "Roboto", Arial, sans-serif;
+    padding:24px;
+  }
+  .login-topmark{
+    position:absolute; top:24px; left:28px;
+    display:flex; align-items:center; gap:10px;
+  }
+  .login-topmark .mark{
+    width:28px;height:28px;border-radius:7px;
+    background: linear-gradient(135deg, var(--teal), #0899a0);
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:700;font-size:12px;
+  }
+  .login-topmark span{ font-size:15px; color:#5f6368; font-weight:500; }
+
+  .login-card{
+    width:100%; max-width:450px;
+    border:1px solid #dadce0;
+    border-radius:28px;
+    padding:48px 40px 36px;
+    background:#fff;
+    box-shadow: 0 1px 3px rgba(60,64,67,0.15);
+  }
+  .login-card h1{
+    margin:0 0 8px; font-size:24px; font-weight:400; color:#202124; text-align:center;
+  }
+  .login-card .login-sub{
+    margin:0 0 32px; font-size:16px; color:#202124; text-align:center;
+  }
+  .login-user-chip{
+    display:none; align-items:center; gap:12px;
+    border:1px solid #dadce0; border-radius:20px; padding:6px 14px 6px 6px;
+    width:fit-content; margin:0 auto 32px; cursor:pointer; user-select:none;
+  }
+  .login-user-chip.show{ display:flex; }
+  .login-user-chip .avatar{
+    width:28px;height:28px;border-radius:50%;
+    background:#1a73e8; color:#fff; font-size:13px; font-weight:600;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .login-user-chip span{ font-size:14px; color:#3c4043; }
+
+  .login-field{ position:relative; margin-bottom:8px; }
+  .login-field input{
+    width:100%; padding:14px 15px; font-size:16px;
+    border:1px solid #dadce0; border-radius:5px;
+    color:#202124; font-family:inherit; background:#fff;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .login-field input:focus{
+    outline:none; border-color:#1a73e8; border-width:2px; padding:13px 14px;
+    box-shadow: 0 0 0 1px #1a73e8;
+  }
+  .login-field.error input{ border-color:#d93025; border-width:2px; padding:13px 14px; }
+  .login-error{
+    display:none; align-items:center; gap:8px;
+    color:#d93025; font-size:13px; margin:6px 2px 18px; font-weight:500;
+  }
+  .login-error.show{ display:flex; }
+  .login-step{ display:none; }
+  .login-step.active{ display:block; animation: login-fade .22s ease; }
+  @keyframes login-fade{ from{ opacity:0; transform:translateY(4px);} to{ opacity:1; transform:translateY(0);} }
+
+  .login-forgot{
+    font-size:13px; color:#1a73e8; text-decoration:none; font-weight:600;
+    display:inline-block; margin-top:6px; cursor:pointer;
+  }
+  .login-forgot:hover{ text-decoration:underline; }
+
+  .login-actions{
+    display:flex; align-items:center; justify-content:flex-end; gap:12px; margin-top:36px;
+  }
+  .login-actions .link-btn{
+    background:none; border:none; color:#1a73e8; font-size:14px; font-weight:600;
+    cursor:pointer; padding:10px 12px; border-radius:4px; font-family:inherit;
+  }
+  .login-actions .link-btn:hover{ background:#f4f8fe; }
+  .login-btn-primary{
+    background:#1a73e8; color:#fff; border:none; border-radius:6px;
+    padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer;
+    font-family:inherit; transition: background .15s ease, box-shadow .15s ease;
+  }
+  .login-btn-primary:hover{ background:#1765cc; box-shadow:0 1px 2px rgba(60,64,67,.3); }
+  .login-btn-primary:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .login-footer{
+    display:flex; justify-content:space-between; width:100%; max-width:450px;
+    margin-top:20px; font-size:12.5px; color:#5f6368;
+  }
+  .login-footer a{ color:#5f6368; text-decoration:none; margin-left:20px; }
+  .login-footer a:hover{ text-decoration:underline; }
+</style>
+</head>
+<body>
+
+  <div class="login-screen" id="loginScreen">
+    <div class="login-topmark">
+      <div class="mark">CP</div>
+      <span>Roster Audit</span>
+    </div>
+
+    <div class="login-card">
+      <form id="loginForm" autocomplete="off">
+
+        <div class="login-step active" id="loginStepUser">
+          <h1>Sign in</h1>
+          <p class="login-sub">to continue to Roster Audit</p>
+          <div class="login-field" id="userField">
+            <input type="text" id="loginUser" placeholder="Username" autocapitalize="off" autocomplete="username">
+          </div>
+          <div class="login-error" id="userError">Couldn't find an account with that username.</div>
+          <div class="login-actions">
+            <button type="button" class="login-btn-primary" id="userNext" style="margin-left:auto;">Next</button>
+          </div>
+        </div>
+
+        <div class="login-step" id="loginStepPass">
+          <h1>Welcome</h1>
+          <div class="login-user-chip show" id="userChip">
+            <span class="avatar" id="userAvatar">A</span>
+            <span id="userChipName">admin</span>
+          </div>
+          <div class="login-field" id="passField">
+            <input type="password" id="loginPass" placeholder="Enter your password" autocomplete="current-password">
+          </div>
+          <div class="login-error" id="passError">Wrong password. Try again.</div>
+          <a class="login-forgot" id="changeUserLink">Not admin? Go back</a>
+          <div class="login-actions">
+            <button type="submit" class="login-btn-primary" id="signInBtn">Sign in</button>
+          </div>
+        </div>
+
+      </form>
+    </div>
+
+    <div class="login-footer">
+      <span>Chandler Personnel</span>
+      <span><a href="#">Help</a><a href="#">Privacy</a><a href="#">Terms</a></span>
+    </div>
+  </div>
+
+  <div id="appShell" class="hidden">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-mark">CP</div>
+      <div class="brand-text">
+        <h1>Roster Audit</h1>
+        <p>Clock In / Out compliance checker · Chandler Personnel</p>
+      </div>
+    </div>
+    <div class="status" id="topStatus">No file loaded</div>
+  </div>
+
+  <div class="wrap">
+
+    <div class="db-panel">
+      <h3><span class="conn-dot connecting" id="connDot"></span> Database connection</h3>
+      <p class="sub" id="connLabel">Connecting to chandler-roster…</p>
+    </div>
+
+    <div class="db-panel hidden" id="browsePanel">
+      <h3>Browse saved shifts</h3>
+      <p class="sub">Load shifts already stored in the database for a date range, instead of uploading a file.</p>
+      <div class="db-row">
+        <label class="conn-label">From <input type="date" id="rangeFrom"></label>
+        <label class="conn-label">To <input type="date" id="rangeTo"></label>
+        <button class="btn ghost" id="loadRangeBtn">Load range</button>
+      </div>
+    </div>
+
+    <div class="dropzone" id="dropzone">
+      <div class="dz-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3v12m0-12l-4 4m4-4l4 4M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h2>Drop your roster export here</h2>
+      <p>or click to browse — accepts .xlsx / .xls / .csv</p>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+      <div id="filenameArea"></div>
+    </div>
+
+    <div class="sync-status" id="syncStatus">
+      <span id="syncStatusIcon"></span>
+      <span id="syncStatusText"></span>
+      <button class="btn ghost" id="syncBtn" style="margin-left:auto; display:none;">Sync again</button>
+    </div>
+
+    <div id="results" class="hidden">
+
+      <div class="summary">
+        <div class="stat total">
+          <div class="num" id="statTotal">0</div>
+          <div class="label">Total shifts</div>
+        </div>
+        <div class="stat missing">
+          <div class="num" id="statMissing">0</div>
+          <div class="label">Missing punch</div>
+        </div>
+        <div class="stat equal">
+          <div class="num" id="statEqual">0</div>
+          <div class="label">In = Out</div>
+        </div>
+        <div class="stat short">
+          <div class="num" id="statShort">0</div>
+          <div class="label">Short shift &lt;4h</div>
+        </div>
+        <div class="stat clean">
+          <div class="num" id="statClean">0</div>
+          <div class="label">Clean rows</div>
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <div class="filters">
+          <div class="chip active" data-filter="all">All flagged</div>
+          <div class="chip" data-filter="missing">Missing punch</div>
+          <div class="chip" data-filter="equal">In = Out</div>
+          <div class="chip" data-filter="short">Short shift</div>
+          <input type="text" class="search" id="searchBox" placeholder="Search employee or client…">
+        </div>
+        <div class="toolbar-right">
+          <button class="btn ghost" id="resetBtn">Upload another file</button>
+          <button class="btn ghost" id="exportCsvBtn">Export CSV (email format)</button>
+          <button class="btn ghost" id="exportColorBtn">Export colored report (.xls)</button>
+          <button class="btn teal" id="exportBtn">Export flagged (.xlsx)</button>
+        </div>
+      </div>
+
+      <div id="tableWrap"></div>
+      <div class="footer-note" id="footerNote"></div>
+    </div>
+
+  </div>
+
+  </div>
+
+<script>
+(function(){
+  // ---------- Login gate ----------
+  // Credentials are checked client-side only, and the signed-in state lives in a plain JS
+  // variable (not localStorage/sessionStorage), so it resets on every page reload.
+  const VALID_USER = 'admin';
+  const VALID_PASS = 'MSChandler@!123';
+
+  const loginScreen = document.getElementById('loginScreen');
+  const appShell = document.getElementById('appShell');
+  const stepUser = document.getElementById('loginStepUser');
+  const stepPass = document.getElementById('loginStepPass');
+  const userField = document.getElementById('userField');
+  const passField = document.getElementById('passField');
+  const loginUserInput = document.getElementById('loginUser');
+  const loginPassInput = document.getElementById('loginPass');
+  const userError = document.getElementById('userError');
+  const passError = document.getElementById('passError');
+  const userNext = document.getElementById('userNext');
+  const changeUserLink = document.getElementById('changeUserLink');
+  const loginForm = document.getElementById('loginForm');
+  const userChipName = document.getElementById('userChipName');
+  const userAvatar = document.getElementById('userAvatar');
+
+  function goToPasswordStep(){
+    const typed = loginUserInput.value.trim();
+    if (typed.toLowerCase() !== VALID_USER){
+      userField.classList.add('error');
+      userError.classList.add('show');
+      return;
+    }
+    userField.classList.remove('error');
+    userError.classList.remove('show');
+    userChipName.textContent = typed;
+    userAvatar.textContent = typed.charAt(0).toUpperCase();
+    stepUser.classList.remove('active');
+    stepPass.classList.add('active');
+    setTimeout(() => loginPassInput.focus(), 50);
+  }
+
+  userNext.addEventListener('click', goToPasswordStep);
+  loginUserInput.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); goToPasswordStep(); } });
+  loginUserInput.addEventListener('input', () => {
+    userField.classList.remove('error');
+    userError.classList.remove('show');
+  });
+
+  changeUserLink.addEventListener('click', () => {
+    stepPass.classList.remove('active');
+    stepUser.classList.add('active');
+    loginPassInput.value = '';
+    passField.classList.remove('error');
+    passError.classList.remove('show');
+    setTimeout(() => loginUserInput.focus(), 50);
+  });
+
+  loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!stepPass.classList.contains('active')) { goToPasswordStep(); return; }
+    const pass = loginPassInput.value;
+    if (pass !== VALID_PASS){
+      passField.classList.add('error');
+      passError.classList.add('show');
+      loginPassInput.value = '';
+      loginPassInput.focus();
+      return;
+    }
+    loginScreen.style.opacity = '0';
+    loginScreen.style.transition = 'opacity .25s ease';
+    setTimeout(() => {
+      loginScreen.classList.add('hidden');
+      appShell.classList.remove('hidden');
+    }, 220);
+  });
+
+  loginPassInput.addEventListener('input', () => {
+    passField.classList.remove('error');
+    passError.classList.remove('show');
+  });
+
+  setTimeout(() => loginUserInput.focus(), 50);
+})();
+</script>
+<script>
+(function(){
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const resultsEl = document.getElementById('results');
+  const tableWrap = document.getElementById('tableWrap');
+  const topStatus = document.getElementById('topStatus');
+  const filenameArea = document.getElementById('filenameArea');
+  const searchBox = document.getElementById('searchBox');
+  const SHORT_SHIFT_MINUTES = 4 * 60;
+
+  // ---------- Supabase config (hardcoded project) ----------
+  // Publishable/anon key — safe to ship client-side, access is governed by RLS policies on the table.
+  const SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
+
+  const connDot = document.getElementById('connDot');
+  const connLabel = document.getElementById('connLabel');
+  const browsePanel = document.getElementById('browsePanel');
+  const rangeFrom = document.getElementById('rangeFrom');
+  const rangeTo = document.getElementById('rangeTo');
+  const loadRangeBtn = document.getElementById('loadRangeBtn');
+
+  const syncStatus = document.getElementById('syncStatus');
+  const syncStatusIcon = document.getElementById('syncStatusIcon');
+  const syncStatusText = document.getElementById('syncStatusText');
+  const syncBtn = document.getElementById('syncBtn');
+
+  let sb = null;             // supabase client, once connected
+  let dataSource = null;     // 'file' | 'db'
+
+  let allRows = [];       // every parsed row with computed flags
+  let currentFilter = 'all';
+  let currentSearch = '';
+  let lastVisible = [];   // rows currently shown on screen (post filter/search) — exports use this
+
+  // ---------- column matching ----------
+  const COLUMN_ALIASES = {
+    shiftDay:   ['shift day'],
+    shiftDate:  ['shift date'],
+    client:     ['client'],
+    department: ['department'],
+    employee:   ['employee'],
+    employeeMobile: ['employee mobile', 'mobile'],
+    position:   ['position'],
+    shiftStart: ['shift start'],
+    shiftEnd:   ['shift end'],
+    clockIn:    ['clockin', 'clock in'],
+    clockOut:   ['clockout', 'clock out'],
+    status:     ['shift status']
+  };
+
+  function normHeader(h){
+    return String(h || '').trim().toLowerCase().replace(/\s+/g,' ');
+  }
+
+  function mapColumns(headerRow){
+    const norm = headerRow.map(normHeader);
+    const map = {};
+    for (const key in COLUMN_ALIASES){
+      const aliases = COLUMN_ALIASES[key];
+      let idx = -1;
+      for (const alias of aliases){
+        idx = norm.indexOf(alias);
+        if (idx !== -1) break;
+      }
+      map[key] = idx;
+    }
+    return map;
+  }
+
+  // ---------- time parsing ----------
+  // Handles "HH:MM", "HH:MM:SS", Excel time fractions (0-1), Date objects, and blank/0-like values.
+  // Used for flagging: 00:00 counts as "no real punch", matching this roster system's convention.
+  function isBlankish(v){
+    if (v === null || v === undefined) return true;
+    if (typeof v === 'number') return v === 0;
+    const s = String(v).trim();
+    if (s === '') return true;
+    if (s === '0' || s === '00:00:00' || s === '00:00' || s === '0:00') return true;
+    return false;
+  }
+
+  // Used for display: only a truly empty cell renders blank. A literal "00:00" still shows as "00:00".
+  function isTrulyEmpty(v){
+    if (v === null || v === undefined) return true;
+    return String(v).trim() === '';
+  }
+
+  function toMinutes(v){
+    if (v === null || v === undefined) return null;
+    if (typeof v === 'number'){
+      // Excel time serial (fraction of a day)
+      if (v > 0 && v < 1) return Math.round(v * 24 * 60);
+      return null;
+    }
+    if (v instanceof Date){
+      return v.getHours() * 60 + v.getMinutes();
+    }
+    const s = String(v).trim();
+    const m = s.match(/^(\d{1,2}):(\d{2})(:\d{2})?$/);
+    if (m){
+      return parseInt(m[1],10) * 60 + parseInt(m[2],10);
+    }
+    return null;
+  }
+
+  function fmtMin(mins){
+    if (mins === null) return '';
+    const h = Math.floor(mins/60), m = mins % 60;
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+  }
+
+  function displayVal(v){
+    if (v === null || v === undefined) return '';
+    if (v instanceof Date) return v.toLocaleDateString();
+    return String(v).trim();
+  }
+
+  // Normalizes a shift-date cell to YYYY-MM-DD for Postgres's `date` column.
+  // Handles ISO strings (already YYYY-MM-DD), Date objects, and common AU-style DD/MM/YYYY text.
+  function toISODate(v){
+    if (v === null || v === undefined || v === '') return null;
+    if (v instanceof Date){
+      const y = v.getFullYear(), m = String(v.getMonth()+1).padStart(2,'0'), d = String(v.getDate()).padStart(2,'0');
+      return `${y}-${m}-${d}`;
+    }
+    const s = String(v).trim();
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+    const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (dmy){
+      return `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+    }
+    const parsed = new Date(s);
+    if (!isNaN(parsed)){
+      return toISODate(parsed);
+    }
+    return null;
+  }
+
+  // ---------- Supabase: auto-connect on load ----------
+  async function autoConnect(){
+    connDot.className = 'conn-dot connecting';
+    connLabel.textContent = 'Connecting to chandler-roster…';
+    try{
+      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      // sanity check: a lightweight query that only succeeds if the table + policy exist
+      const { error } = await client.from('roster_shifts').select('id', { count: 'exact', head: true });
+      if (error) throw error;
+      sb = client;
+      connDot.className = 'conn-dot on';
+      connLabel.textContent = 'Connected to chandler-roster';
+      browsePanel.classList.remove('hidden');
+    }catch(err){
+      sb = null;
+      connDot.className = 'conn-dot off';
+      connLabel.textContent = 'Connection failed — check the table exists and try reloading';
+      console.error(err);
+    }
+  }
+  autoConnect();
+
+  // ---------- file handling ----------
+  dropzone.addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+  dropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropzone.classList.remove('drag');
+    if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', e => {
+    if (e.target.files.length) handleFile(e.target.files[0]);
+  });
+
+  function handleFile(file){
+    filenameArea.innerHTML = `<div class="filename-pill"><span class="dot"></span>${file.name}</div>`;
+    topStatus.textContent = 'Reading ' + file.name + '…';
+    hideSyncStatus();
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type:'array', cellDates:true });
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
+        processRows(rows, sheetName);
+      }catch(err){
+        topStatus.textContent = 'Could not read file';
+        tableWrap.innerHTML = `<div class="empty-state">Couldn't parse this file. Make sure it's a valid .xlsx/.xls/.csv export.<br><span class="muted">${err.message}</span></div>`;
+        resultsEl.classList.remove('hidden');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function processRows(rows, sheetName){
+    if (!rows.length){
+      topStatus.textContent = 'No data found';
+      return;
+    }
+    const headerRow = rows[0];
+    const colMap = mapColumns(headerRow);
+
+    if (colMap.clockIn === -1 || colMap.clockOut === -1){
+      tableWrap.innerHTML = `<div class="empty-state">Couldn't find CLOCKIN / CLOCKOUT columns in "${sheetName}". Check the headers match the roster export format.</div>`;
+      resultsEl.classList.remove('hidden');
+      topStatus.textContent = 'Column mismatch';
+      return;
+    }
+
+    allRows = [];
+    for (let i = 1; i < rows.length; i++){
+      const r = rows[i];
+      if (!r || r.every(c => c === null || c === '')) continue;
+
+      const get = (key) => colMap[key] !== undefined && colMap[key] !== -1 ? r[colMap[key]] : null;
+
+      const rawIn = get('clockIn');
+      const rawOut = get('clockOut');
+      const inBlank = isBlankish(rawIn);
+      const outBlank = isBlankish(rawOut);
+      const minIn = toMinutes(rawIn);
+      const minOut = toMinutes(rawOut);
+
+      const flags = [];
+      let durationMins = null;
+
+      if (inBlank || outBlank || minIn === null || minOut === null){
+        flags.push('missing');
+      } else if (minIn === minOut){
+        flags.push('equal');
+      } else {
+        durationMins = minOut - minIn;
+        if (durationMins < 0) durationMins += 24*60; // overnight shift
+        if (durationMins < SHORT_SHIFT_MINUTES){
+          flags.push('short');
+        }
+      }
+
+      allRows.push({
+        shiftDay: displayVal(get('shiftDay')),
+        shiftDate: displayVal(get('shiftDate')),
+        shiftDateISO: toISODate(get('shiftDate')),
+        client: displayVal(get('client')),
+        department: displayVal(get('department')),
+        employee: displayVal(get('employee')),
+        employeeMobile: displayVal(get('employeeMobile')),
+        position: displayVal(get('position')),
+        shiftStart: displayVal(get('shiftStart')),
+        shiftEnd: displayVal(get('shiftEnd')),
+        clockIn: isTrulyEmpty(rawIn) ? '' : (minIn !== null ? fmtMin(minIn) : displayVal(rawIn)),
+        clockOut: isTrulyEmpty(rawOut) ? '' : (minOut !== null ? fmtMin(minOut) : displayVal(rawOut)),
+        duration: durationMins,
+        flags: flags
+      });
+    }
+
+    dataSource = 'file';
+    render();
+    topStatus.textContent = allRows.length + ' shifts loaded from "' + sheetName + '"';
+
+    // Auto-sync to the database as soon as a file is parsed.
+    if (sb) {
+      syncToDatabase();
+    } else {
+      setSyncStatus('warn', 'Not synced — database isn\u2019t connected yet.', false);
+    }
+  }
+
+  // ---------- rendering ----------
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentFilter = chip.dataset.filter;
+      render();
+    });
+  });
+
+  searchBox.addEventListener('input', () => {
+    currentSearch = searchBox.value.trim().toLowerCase();
+    render();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    allRows = [];
+    fileInput.value = '';
+    filenameArea.innerHTML = '';
+    resultsEl.classList.add('hidden');
+    topStatus.textContent = 'No file loaded';
+    dataSource = null;
+    hideSyncStatus();
+  });
+
+  document.getElementById('exportBtn').addEventListener('click', exportFlagged);
+  document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+  document.getElementById('exportColorBtn').addEventListener('click', exportColored);
+
+  // ---------- animated sync status ----------
+  const ICONS = {
+    spinner: '<span class="sync-spinner"></span>',
+    check: `<svg class="sync-check" viewBox="0 0 24 24" fill="none">
+      <circle class="ring" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+      <path class="mark" d="M7 12.5l3.5 3.5L9.5 8.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+    warn: `<svg class="sync-warn-icon" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.22"/>
+      <path d="M12 7.5v6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="12" cy="16.3" r="1.15" fill="currentColor"/>
+    </svg>`,
+    error: `<svg class="sync-error-icon" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.22"/>
+      <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>`
+  };
+
+  function setSyncStatus(state, text, showRetry){
+    syncStatus.classList.remove('syncing','success','warn','error');
+    syncStatus.classList.add('show', state);
+    syncStatusText.textContent = text;
+    syncStatusIcon.innerHTML = state === 'syncing' ? ICONS.spinner
+      : state === 'success' ? ICONS.check
+      : state === 'warn' ? ICONS.warn
+      : ICONS.error;
+    syncBtn.style.display = showRetry ? '' : 'none';
+  }
+
+  function hideSyncStatus(){
+    syncStatus.classList.remove('show','syncing','success','warn','error');
+  }
+
+  syncBtn.addEventListener('click', () => {
+    if (allRows.length) syncToDatabase();
+  });
+
+  // ---------- Supabase: sync current data to database ----------
+  async function syncToDatabase(){
+    if (!sb || !allRows.length) return;
+    syncBtn.disabled = true;
+    setSyncStatus('syncing', `Syncing ${allRows.length} shifts to the database…`, false);
+
+    try{
+      const prepared = allRows.filter(r => r.shiftDateISO && r.employee && r.shiftStart);
+      const skipped = allRows.length - prepared.length;
+      const dates = [...new Set(prepared.map(r => r.shiftDateISO))];
+
+      const { data: existing, error: fetchErr } = await sb
+        .from('roster_shifts')
+        .select('*')
+        .in('shift_date', dates);
+      if (fetchErr) throw fetchErr;
+
+      const existingMap = new Map();
+      for (const row of existing){
+        existingMap.set(`${row.employee}|${row.shift_date}|${row.shift_start}`, row);
+      }
+
+      const toUpsert = [];
+      const historyRows = [];
+      let countNew = 0, countReplaced = 0, countUnchanged = 0;
+
+      for (const r of prepared){
+        const key = `${r.employee}|${r.shiftDateISO}|${r.shiftStart}`;
+        const existingRow = existingMap.get(key);
+        const payload = {
+          employee: r.employee,
+          employee_mobile: r.employeeMobile || null,
+          shift_date: r.shiftDateISO,
+          shift_day: r.shiftDay || null,
+          client: r.client || null,
+          department: r.department || null,
+          position: r.position || null,
+          shift_start: r.shiftStart,
+          shift_end: r.shiftEnd || null,
+          clock_in: r.clockIn || null,
+          clock_out: r.clockOut || null,
+          duration_minutes: r.duration,
+          flags: r.flags,
+          updated_at: new Date().toISOString()
+        };
+        if (!existingRow){
+          toUpsert.push(payload);
+          countNew++;
+        } else {
+          const changed = (existingRow.clock_in || '') !== (r.clockIn || '') || (existingRow.clock_out || '') !== (r.clockOut || '');
+          if (changed){
+            historyRows.push({
+              shift_id: existingRow.id,
+              employee: r.employee,
+              shift_date: r.shiftDateISO,
+              old_clock_in: existingRow.clock_in,
+              old_clock_out: existingRow.clock_out,
+              new_clock_in: r.clockIn || null,
+              new_clock_out: r.clockOut || null,
+              old_flags: existingRow.flags,
+              new_flags: r.flags
+            });
+            toUpsert.push(payload);
+            countReplaced++;
+          } else {
+            countUnchanged++;
+          }
+        }
+      }
+
+      if (historyRows.length){
+        const { error: histErr } = await sb.from('roster_shift_history').insert(historyRows);
+        if (histErr) throw histErr;
+      }
+
+      if (toUpsert.length){
+        const { error: upsertErr } = await sb.from('roster_shifts').upsert(toUpsert, { onConflict: 'employee,shift_date,shift_start' });
+        if (upsertErr) throw upsertErr;
+      }
+
+      const parts = [`${countNew} new`, `${countReplaced} updated`, `${countUnchanged} unchanged`];
+      if (skipped) parts.push(`${skipped} skipped (unreadable date/employee)`);
+      const summary = 'Synced — ' + parts.join(' · ') + '.';
+
+      setSyncStatus(countReplaced > 0 ? 'warn' : 'success', summary, true);
+    }catch(err){
+      setSyncStatus('error', 'Sync failed: ' + (err.message || 'unknown error') + '.', true);
+      console.error(err);
+    }finally{
+      syncBtn.disabled = false;
+    }
+  }
+
+  // ---------- Supabase: browse by date range ----------
+  loadRangeBtn.addEventListener('click', async () => {
+    if (!sb) return;
+    const from = rangeFrom.value;
+    const to = rangeTo.value;
+    if (!from || !to){
+      topStatus.textContent = 'Pick both a From and To date';
+      return;
+    }
+    loadRangeBtn.disabled = true;
+    loadRangeBtn.textContent = 'Loading…';
+    try{
+      const { data, error } = await sb
+        .from('roster_shifts')
+        .select('*')
+        .gte('shift_date', from)
+        .lte('shift_date', to)
+        .order('shift_date', { ascending: true })
+        .order('employee', { ascending: true });
+      if (error) throw error;
+
+      allRows = data.map(row => ({
+        shiftDay: row.shift_day || '',
+        shiftDate: row.shift_date || '',
+        shiftDateISO: row.shift_date,
+        client: row.client || '',
+        department: row.department || '',
+        employee: row.employee || '',
+        employeeMobile: row.employee_mobile || '',
+        position: row.position || '',
+        shiftStart: row.shift_start || '',
+        shiftEnd: row.shift_end || '',
+        clockIn: row.clock_in || '',
+        clockOut: row.clock_out || '',
+        duration: row.duration_minutes,
+        flags: row.flags || []
+      }));
+
+      dataSource = 'db';
+      filenameArea.innerHTML = '';
+      hideSyncStatus();
+      topStatus.textContent = `${allRows.length} shifts loaded from database (${from} → ${to})`;
+      render();
+    }catch(err){
+      topStatus.textContent = 'Could not load range: ' + (err.message || 'unknown error');
+      console.error(err);
+    }finally{
+      loadRangeBtn.disabled = false;
+      loadRangeBtn.textContent = 'Load range';
+    }
+  });
+
+  function getFlaggedRows(){
+    return allRows.filter(r => r.flags.length > 0);
+  }
+
+  function render(){
+    resultsEl.classList.remove('hidden');
+
+    const flagged = getFlaggedRows();
+    const missingCount = flagged.filter(r => r.flags.includes('missing')).length;
+    const equalCount = flagged.filter(r => r.flags.includes('equal')).length;
+    const shortCount = flagged.filter(r => r.flags.includes('short')).length;
+    const cleanCount = allRows.length - flagged.length;
+
+    document.getElementById('statTotal').textContent = allRows.length;
+    document.getElementById('statMissing').textContent = missingCount;
+    document.getElementById('statEqual').textContent = equalCount;
+    document.getElementById('statShort').textContent = shortCount;
+    document.getElementById('statClean').textContent = cleanCount;
+
+    let visible = flagged;
+    if (currentFilter !== 'all'){
+      visible = visible.filter(r => r.flags.includes(currentFilter));
+    }
+    if (currentSearch){
+      visible = visible.filter(r =>
+        r.employee.toLowerCase().includes(currentSearch) ||
+        r.client.toLowerCase().includes(currentSearch)
+      );
+    }
+
+    lastVisible = visible;
+
+    if (!visible.length){
+      tableWrap.innerHTML = `<div class="empty-state">No flagged shifts match this view. ${flagged.length===0 ? 'Every shift has clean clock in/out data.' : 'Try a different filter or search.'}</div>`;
+      document.getElementById('footerNote').textContent = '';
+      return;
+    }
+
+    const tagHtml = (flags) => flags.map(f => {
+      if (f==='missing') return `<span class="tag missing">Missing punch</span>`;
+      if (f==='equal') return `<span class="tag equal">In = Out</span>`;
+      if (f==='short') return `<span class="tag short">Short shift</span>`;
+      return '';
+    }).join('');
+
+    let html = `<table><thead><tr>
+      <th>Day</th><th>Date</th><th>Client</th><th>Dept</th><th>Employee</th><th>Mobile</th><th>Position</th>
+      <th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Issue</th>
+    </tr></thead><tbody>`;
+
+    for (const r of visible){
+      const rowClass = r.flags.includes('missing') ? 'row-missing' : r.flags.includes('short') ? 'row-short' : r.flags.includes('equal') ? 'row-equal' : '';
+      html += `<tr class="${rowClass}">
+        <td>${escapeHtml(r.shiftDay)}</td>
+        <td class="mono">${escapeHtml(r.shiftDate)}</td>
+        <td>${escapeHtml(r.client)}</td>
+        <td>${escapeHtml(r.department)}</td>
+        <td><strong>${escapeHtml(r.employee)}</strong></td>
+        <td class="mono">${escapeHtml(r.employeeMobile)}</td>
+        <td>${escapeHtml(r.position)}</td>
+        <td class="mono">${r.clockIn ? escapeHtml(r.clockIn) : '<span class="muted">—</span>'}</td>
+        <td class="mono">${r.clockOut ? escapeHtml(r.clockOut) : '<span class="muted">—</span>'}</td>
+        <td class="mono">${r.duration !== null ? fmtDuration(r.duration) : '<span class="muted">—</span>'}</td>
+        <td>${tagHtml(r.flags)}</td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    tableWrap.innerHTML = html;
+
+    document.getElementById('footerNote').textContent =
+      `Showing ${visible.length} of ${flagged.length} flagged shift${flagged.length===1?'':'s'} (${allRows.length} total in file)`;
+  }
+
+  function fmtDuration(mins){
+    const h = Math.floor(mins/60), m = mins % 60;
+    return h + 'h ' + (m ? m + 'm' : '');
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function issueLabel(flags){
+    return flags.map(f => f==='missing' ? 'Missing punch' : f==='equal' ? 'In = Out' : 'Short shift <4h').join('; ');
+  }
+
+  function exportFlagged(){
+    const rows = lastVisible.length ? lastVisible : getFlaggedRows();
+    if (!rows.length) return;
+    const data = rows.map(r => ({
+      'Employee': r.employee,
+      'Employee Mobile': r.employeeMobile,
+      'Client': r.client,
+      'Department': r.department,
+      'Position': r.position,
+      'Shift Day': r.shiftDay,
+      'Shift Date': r.shiftDate,
+      'Shift Start': r.shiftStart,
+      'Shift End': r.shiftEnd,
+      'Clock In': r.clockIn,
+      'Clock Out': r.clockOut,
+      'Duration': r.duration !== null ? fmtDuration(r.duration) : '',
+      'Issue': issueLabel(r.flags)
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [
+      {wch:22},{wch:14},{wch:26},{wch:18},{wch:20},{wch:8},{wch:12},{wch:10},{wch:10},{wch:9},{wch:9},{wch:10},{wch:24}
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Flagged Shifts');
+    const stamp = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `roster-flagged-${stamp}.xlsx`);
+  }
+
+  // Matches the exact column layout used in the "missing clock-in/out" client email:
+  // SHIFT DAY, SHIFT DATE, CLIENT, DEPARTMENT, EMPLOYEE, EMPLOYEE MOBILE, POSITION, CLOCKIN, CLOCKOUT
+  function exportCsv(){
+    const rows = lastVisible.length ? lastVisible : getFlaggedRows();
+    if (!rows.length) return;
+
+    const headers = ['SHIFT DAY','SHIFT DATE','CLIENT','DEPARTMENT','EMPLOYEE','EMPLOYEE MOBILE','POSITION','CLOCKIN','CLOCKOUT'];
+    const csvRows = [headers];
+
+    for (const r of rows){
+      csvRows.push([
+        r.shiftDay,
+        r.shiftDate,
+        r.client,
+        r.department,
+        r.employee,
+        r.employeeMobile,
+        r.position,
+        r.clockIn,
+        r.clockOut
+      ]);
+    }
+
+    const csvContent = csvRows.map(row =>
+      row.map(csvEscape).join(',')
+    ).join('\r\n');
+
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `missing-clock-inout-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function csvEscape(v){
+    const s = (v === null || v === undefined) ? '' : String(v);
+    if (/[",\r\n]/.test(s)){
+      return '"' + s.replace(/"/g,'""') + '"';
+    }
+    return s;
+  }
+
+  // Builds a real spreadsheet with colored rows (red = missing, green = short shift, amber = in=out).
+  // Uses the "Excel HTML" trick: a plain HTML table saved with a .xls extension + the right MIME
+  // type opens directly in Excel with all inline colors intact — the free SheetJS build we use
+  // elsewhere in this tool can't write cell fills into a real .xlsx, so this is the reliable path
+  // for a colored, shareable file.
+  function exportColored(){
+    const rows = lastVisible.length ? lastVisible : getFlaggedRows();
+    if (!rows.length) return;
+
+    const rowColor = (flags) =>
+      flags.includes('missing') ? '#F8C6C6' :
+      flags.includes('short') ? '#C3EAD0' :
+      flags.includes('equal') ? '#F7DFA4' : '#FFFFFF';
+
+    const headers = ['Shift Day','Shift Date','Client','Department','Employee','Employee Mobile','Position','Clock In','Clock Out','Issue'];
+
+    let body = '';
+    for (const r of rows){
+      const bg = rowColor(r.flags);
+      body += `<tr style="background:${bg};">` +
+        [r.shiftDay, r.shiftDate, r.client, r.department, r.employee, r.employeeMobile, r.position, r.clockIn, r.clockOut, issueLabel(r.flags)]
+          .map(v => `<td style="background:${bg};border:1px solid #ccc;padding:4px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${escapeHtml(v)}</td>`)
+          .join('') +
+        `</tr>`;
+    }
+
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>Flagged Shifts</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+<body><table>
+<tr>${headers.map(h => `<th style="background:#1F2E3F;color:#fff;border:1px solid #ccc;padding:5px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${escapeHtml(h)}</th>`).join('')}</tr>
+${body}
+</table></body></html>`;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `roster-flagged-colored-${stamp}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+})();
+</script>
+</body>
+</html>
