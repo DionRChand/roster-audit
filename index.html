@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chandler Roster Audit — Clock In/Out Checker</title>
+<title>Chandler Compliance Hub</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -52,23 +52,96 @@
   .brand-text p{ margin:2px 0 0; font-size:12px; color:#B7C4D1; }
   .topbar .status{ font-size:12px; color:#9FB0BF; }
 
-  .wrap{ max-width:1180px; margin:0 auto; padding: 28px 24px 60px; }
+  /* ---------- Chrome-style section tabs (sit below the topbar) ---------- */
+  .tabbar{
+    display:flex;
+    align-items:flex-end;
+    gap:4px;
+    padding: 10px 28px 0;
+    background: var(--navy-deep);
+    overflow-x:auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tabbar::-webkit-scrollbar{ height:0; }
+  .tab-btn{
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    gap:7px;
+    padding: 11px 20px 10px;
+    font-size:13px;
+    font-weight:600;
+    font-family:inherit;
+    color:#9FB0BF;
+    background: #263847;
+    border:none;
+    border-radius: 10px 10px 0 0;
+    cursor:pointer;
+    white-space:nowrap;
+    transition: background .15s ease, color .15s ease;
+  }
+  .tab-btn:hover{ background:#324B60; color:#fff; }
+  .tab-btn.active{ background: var(--paper); color: var(--navy-deep); }
+  .tab-btn .tab-dot{
+    width:6px; height:6px; border-radius:50%; background:#5B7385; flex-shrink:0;
+  }
+  .tab-btn.active .tab-dot{ background: var(--teal); }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  .placeholder-card{
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 70px 30px; text-align:center; color: var(--text-soft);
+    max-width: 560px; margin: 36px auto 0;
+  }
+  .placeholder-card .rp-icon{
+    width:56px;height:56px;margin:0 auto 18px;border-radius:14px;
+    background: var(--teal-soft); display:flex;align-items:center;justify-content:center;
+  }
+  .placeholder-card h3{ margin:0 0 8px; font-size:16px; font-weight:600; color: var(--text); }
+  .placeholder-card p{ margin:0 0 16px; font-size:13.5px; }
+  .placeholder-card .placeholder-tag{
+    display:inline-block; font-size:11px; font-weight:700; letter-spacing:.3px;
+    color:#B57A15; background:#FBF1DF; padding:4px 12px; border-radius:20px;
+  }
+
+  .wrap{ width:100%; margin:0 auto; padding: 28px 32px 60px; }
+
+  .layout{ display:grid; grid-template-columns: 340px 1fr; gap:24px; align-items:start; }
+  .sidebar{ display:flex; flex-direction:column; gap:16px; position:sticky; top:20px; }
+  .main-col{ min-width:0; }
+
+  .right-placeholder{
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 70px 30px; text-align:center; color: var(--text-soft);
+  }
+  .right-placeholder .rp-icon{
+    width:56px;height:56px;margin:0 auto 18px;border-radius:14px;
+    background: var(--teal-soft); display:flex;align-items:center;justify-content:center;
+  }
+  .right-placeholder h3{ margin:0 0 8px; font-size:15.5px; font-weight:600; color: var(--text); }
+  .right-placeholder p{ margin:0; font-size:13.5px; max-width:340px; margin-left:auto; margin-right:auto; }
+
+  @media (max-width: 1050px){
+    .layout{ grid-template-columns: 1fr; }
+    .sidebar{ position:static; }
+  }
 
   .dropzone{
     background: var(--card);
     border: 1.5px dashed #C7D2DA;
     border-radius: var(--radius);
-    padding: 44px 28px;
+    padding: 30px 20px;
     text-align:center;
     transition: border-color .15s ease, background .15s ease;
     box-shadow: var(--shadow);
     cursor:pointer;
   }
   .dropzone.drag{ border-color: var(--teal); background: var(--teal-soft); }
-  .dropzone h2{ margin: 4px 0 6px; font-size:16px; font-weight:600; }
-  .dropzone p{ margin:0; color: var(--text-soft); font-size:13.5px; }
+  .dropzone h2{ margin: 4px 0 6px; font-size:14.5px; font-weight:600; }
+  .dropzone p{ margin:0; color: var(--text-soft); font-size:12.5px; }
   .dz-icon{
-    width:52px;height:52px;margin:0 auto 14px;border-radius:12px;
+    width:44px;height:44px;margin:0 auto 12px;border-radius:11px;
     background: var(--teal-soft);
     display:flex;align-items:center;justify-content:center;
   }
@@ -131,7 +204,17 @@
   .search:focus{ outline:none; border-color: var(--teal); }
   .toolbar-right{ display:flex; gap:8px; }
 
-  table{ width:100%; border-collapse: collapse; margin-top:16px; background:#fff; border-radius: var(--radius); overflow:hidden; box-shadow: var(--shadow); }
+  table{ width:100%; min-width:1280px; border-collapse: collapse; margin-top:16px; background:#fff; border-radius: var(--radius); box-shadow: var(--shadow); }
+  #tableWrap{
+    overflow-x:auto;
+    border-radius: var(--radius);
+    -webkit-overflow-scrolling: touch;
+  }
+  #tableWrap table{ margin-top:0; }
+  #tableWrap thead th:first-child, #tableWrap tbody td:first-child{
+    position: sticky; left:0; z-index:1; background:inherit;
+  }
+  thead th:first-child{ background:#F0F3F5; }
   thead th{
     text-align:left; font-size:11.5px; letter-spacing:.4px; text-transform:uppercase;
     color: var(--text-soft); background:#F0F3F5; padding:11px 14px; border-bottom:1px solid var(--line);
@@ -146,6 +229,8 @@
   tbody tr.row-short:hover{ background:#D9F0E1; }
   tbody tr.row-equal{ background:#FCF3E0; }
   tbody tr.row-equal:hover{ background:#F9EACB; }
+  tbody tr.row-corrected{ background:#E1F2EA; transition: background .35s ease; }
+  tbody tr.row-corrected:hover{ background:#CFEBDD; }
   .tag{
     display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px;
     margin:2px 4px 2px 0; letter-spacing:.2px;
@@ -153,8 +238,40 @@
   .tag.missing{ background:#FCEBEB; color:#C13D3D; }
   .tag.equal{ background:#FBF1DF; color:#B57A15; }
   .tag.short{ background:#F1EBFA; color:#6B4A9E; }
+  .tag.corrected{ background:#D3EFE0; color:#1E7A4C; }
   .mono{ font-variant-numeric: tabular-nums; }
   .muted{ color:#A6B2BC; }
+
+  td.edit-cell{ width:78px; min-width:78px; max-width:78px; }
+  td.remarks-cell{ width:130px; min-width:130px; max-width:130px; }
+  .correct-input, .remarks-input{
+    width:100%; border:1.5px solid var(--line); border-radius:6px;
+    padding:6px 7px; font-size:12px; font-family:inherit; color:var(--text);
+    background:#FCFDFD; transition: border-color .15s ease, background .15s ease;
+    box-sizing:border-box;
+  }
+  .correct-input{ font-variant-numeric: tabular-nums; text-align:center; }
+  .remarks-input{ text-overflow:ellipsis; }
+  .remarks-input:not(:focus){ overflow:hidden; white-space:nowrap; }
+  .correct-input:focus, .remarks-input:focus{
+    outline:none; border-color: var(--teal); background:#fff;
+  }
+  .correct-input::placeholder, .remarks-input::placeholder{ color:#B7C2CA; }
+  .cell-save-badge{
+    display:inline-flex; align-items:center; gap:4px; margin-top:4px;
+    font-size:10.5px; font-weight:700; letter-spacing:.2px;
+    max-height:0; opacity:0; overflow:hidden; transition: max-height .2s ease, opacity .2s ease;
+  }
+  .cell-save-badge.show{ max-height:16px; opacity:1; }
+  .cell-save-badge.saving{ color:#8E99A3; }
+  .cell-save-badge.success{ color:#256B41; }
+  .cell-save-badge.warn{ color:#8A5A00; }
+  .cell-save-badge.error{ color:#B23B3B; }
+  .cell-save-badge .mini-spinner{
+    width:9px;height:9px;border-radius:50%; flex-shrink:0;
+    border:1.6px solid rgba(0,0,0,0.15); border-top-color: currentColor;
+    animation: sync-spin .7s linear infinite;
+  }
 
   .empty-state{
     text-align:center; padding:60px 20px; color: var(--text-soft); font-size:14px;
@@ -172,6 +289,54 @@
     border:1.5px solid var(--line); border-radius:8px; padding:8px 11px; font-size:13px;
     background:#fff; color:var(--text); font-family:inherit;
   }
+
+  /* ---------- Single-field calendar date-range picker ---------- */
+  .daterange-wrap{ position:relative; width:100%; }
+  .daterange-field{
+    width:100%; display:flex; align-items:center; gap:9px;
+    border:1.5px solid var(--line); border-radius:8px; padding:9px 12px;
+    background:#fff; font-size:13px; color: var(--text-soft); font-weight:600;
+    font-family:inherit; cursor:pointer; text-align:left;
+    transition: border-color .15s ease;
+  }
+  .daterange-field svg{ flex-shrink:0; }
+  .daterange-field.has-value{ color: var(--navy); }
+  .daterange-field:hover{ border-color: var(--teal); }
+  .daterange-field.open{ border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
+
+  .daterange-popover{
+    position:absolute; top:calc(100% + 8px); left:0; z-index:30;
+    background:#fff; border-radius:12px; box-shadow: var(--shadow); border:1px solid var(--line);
+    padding:14px; width:272px;
+    display:none;
+  }
+  .daterange-popover.show{ display:block; }
+  .dr-hint{ font-size:11.5px; color: var(--text-soft); margin:0 0 10px; }
+  .dr-cal-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .dr-nav{
+    background:none; border:none; cursor:pointer; font-size:15px; color: var(--navy);
+    padding:4px 9px; border-radius:6px; line-height:1; font-family:inherit;
+  }
+  .dr-nav:hover{ background:#EEF2F5; }
+  #drMonthLabel{ font-size:12.5px; font-weight:700; color: var(--text); }
+  .dr-grid{ display:grid; grid-template-columns: repeat(7,1fr); gap:2px; }
+  .dr-dow{ font-size:10px; text-align:center; color: var(--text-soft); font-weight:700; padding:4px 0 6px; }
+  .dr-day{
+    font-size:12px; text-align:center; padding:7px 0; color: var(--text); cursor:pointer;
+    position:relative;
+  }
+  .dr-day .dr-day-num{ position:relative; z-index:1; display:block; border-radius:6px; padding:2px 0; }
+  .dr-day:hover .dr-day-num{ background: var(--teal-soft); }
+  .dr-day.outside{ color:#C7D2DA; }
+  .dr-day.in-range{ background: var(--teal-soft); }
+  .dr-day.range-start{ background: linear-gradient(to right, transparent 50%, var(--teal-soft) 50%); }
+  .dr-day.range-end{ background: linear-gradient(to left, transparent 50%, var(--teal-soft) 50%); }
+  .dr-day.range-start.range-end{ background:none; }
+  .dr-day.range-start .dr-day-num, .dr-day.range-end .dr-day-num{
+    background: var(--teal); color:#fff; font-weight:700;
+  }
+  .dr-actions{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:8px; }
+  .dr-actions .btn{ padding:7px 13px; font-size:12.5px; }
   .conn-dot{ width:9px;height:9px;border-radius:50%; background:#C7CFD6; flex-shrink:0; transition: background .2s ease; }
   .conn-dot.on{ background:#3BB273; box-shadow: 0 0 0 3px rgba(59,178,115,0.18); }
   .conn-dot.off{ background:#E15B5B; }
@@ -317,7 +482,7 @@
   <div class="login-screen" id="loginScreen">
     <div class="login-topmark">
       <div class="mark">CP</div>
-      <span>Roster Audit</span>
+      <span>Compliance Hub</span>
     </div>
 
     <div class="login-card">
@@ -325,7 +490,7 @@
 
         <div class="login-step active" id="loginStepUser">
           <h1>Sign in</h1>
-          <p class="login-sub">to continue to Roster Audit</p>
+          <p class="login-sub">to continue to Compliance Hub</p>
           <div class="login-field" id="userField">
             <input type="text" id="loginUser" placeholder="Username" autocapitalize="off" autocomplete="username">
           </div>
@@ -366,97 +531,200 @@
     <div class="brand">
       <div class="brand-mark">CP</div>
       <div class="brand-text">
-        <h1>Roster Audit</h1>
-        <p>Clock In / Out compliance checker · Chandler Personnel</p>
+        <h1>Compliance Hub</h1>
+        <p>Workforce compliance tools · Chandler Personnel</p>
       </div>
     </div>
     <div class="status" id="topStatus">No file loaded</div>
   </div>
 
-  <div class="wrap">
+  <div class="tabbar">
+    <button class="tab-btn active" data-tab="panel-roster" type="button"><span class="tab-dot"></span>Roster Audit</button>
+    <button class="tab-btn" data-tab="panel-mission" type="button"><span class="tab-dot"></span>Mission Food Compliance</button>
+    <button class="tab-btn" data-tab="panel-davies" type="button"><span class="tab-dot"></span>Davies Food Compliance</button>
+    <button class="tab-btn" data-tab="panel-police" type="button"><span class="tab-dot"></span>Expired Police Check</button>
+  </div>
 
-    <div class="db-panel">
-      <h3><span class="conn-dot connecting" id="connDot"></span> Database connection</h3>
-      <p class="sub" id="connLabel">Connecting to chandler-roster…</p>
+  <div class="wrap tab-panel active" id="panel-roster">
+    <div class="layout">
+
+      <aside class="sidebar">
+        <div class="db-panel">
+          <h3><span class="conn-dot connecting" id="connDot"></span> Database connection</h3>
+          <p class="sub" id="connLabel">Connecting to chandler-roster…</p>
+        </div>
+
+        <div class="db-panel hidden" id="browsePanel">
+          <h3>Browse saved shifts</h3>
+          <p class="sub">Load shifts already stored in the database for a date range, instead of uploading a file.</p>
+          <div class="db-row">
+          <div class="daterange-wrap">
+            <button type="button" class="daterange-field" id="dateRangeField">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="5" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M3 9.5h18M8 3.5v3M16 3.5v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <span id="dateRangeLabel">Select date range</span>
+            </button>
+            <div class="daterange-popover" id="dateRangePopover">
+              <p class="dr-hint">Click a start date, then an end date</p>
+              <div class="dr-cal-header">
+                <button type="button" class="dr-nav" id="drPrev">‹</button>
+                <span id="drMonthLabel">Month Year</span>
+                <button type="button" class="dr-nav" id="drNext">›</button>
+              </div>
+              <div class="dr-grid" id="drGrid"></div>
+              <div class="dr-actions">
+                <button type="button" class="btn ghost" id="drClear">Clear</button>
+                <button type="button" class="btn teal" id="drDone">Done</button>
+              </div>
+            </div>
+          </div>
+          <button class="btn ghost" id="loadRangeBtn" style="margin-top:2px;">Load range</button>
+          </div>
+        </div>
+
+        <div class="dropzone" id="dropzone">
+          <div class="dz-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3v12m0-12l-4 4m4-4l4 4M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h2>Drop your roster export here</h2>
+          <p>or click to browse — accepts .xlsx / .xls / .csv</p>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+          <div id="filenameArea"></div>
+        </div>
+
+        <div class="sync-status" id="syncStatus">
+          <span id="syncStatusIcon"></span>
+          <span id="syncStatusText"></span>
+          <button class="btn ghost" id="syncBtn" style="margin-left:auto; display:none;">Sync again</button>
+        </div>
+      </aside>
+
+      <main class="main-col">
+
+        <div class="right-placeholder" id="rightPlaceholder">
+          <div class="rp-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="4" width="18" height="16" rx="2" stroke="#0CBBC1" stroke-width="1.8"/>
+              <path d="M3 9h18M8 4v16" stroke="#0CBBC1" stroke-width="1.8"/>
+            </svg>
+          </div>
+          <h3>No shifts loaded yet</h3>
+          <p>Drop a roster file on the left, or browse saved shifts by date range, to see flagged issues here.</p>
+        </div>
+
+        <div id="results" class="hidden">
+
+          <div class="summary">
+            <div class="stat total">
+              <div class="num" id="statTotal">0</div>
+              <div class="label">Total shifts</div>
+            </div>
+            <div class="stat missing">
+              <div class="num" id="statMissing">0</div>
+              <div class="label">Missing punch</div>
+            </div>
+            <div class="stat equal">
+              <div class="num" id="statEqual">0</div>
+              <div class="label">In = Out</div>
+            </div>
+            <div class="stat short">
+              <div class="num" id="statShort">0</div>
+              <div class="label">Short shift &lt;4h</div>
+            </div>
+            <div class="stat clean">
+              <div class="num" id="statClean">0</div>
+              <div class="label">Clean rows</div>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="filters">
+              <div class="chip active" data-filter="all">All flagged</div>
+              <div class="chip" data-filter="missing">Missing punch</div>
+              <div class="chip" data-filter="equal">In = Out</div>
+              <div class="chip" data-filter="short">Short shift</div>
+              <input type="text" class="search" id="searchBox" placeholder="Search employee or client…">
+            </div>
+            <div class="toolbar-right">
+              <button class="btn ghost" id="resetBtn">Upload another file</button>
+              <button class="btn ghost" id="exportCsvBtn">Export CSV (email format)</button>
+              <button class="btn ghost" id="exportColorBtn">Export colored report (.xls)</button>
+              <button class="btn teal" id="exportBtn">Export flagged (.xlsx)</button>
+            </div>
+          </div>
+
+          <div id="tableWrap"></div>
+          <div class="footer-note" id="footerNote"></div>
+        </div>
+
+      </main>
+
     </div>
+  </div>
 
-    <div class="db-panel hidden" id="browsePanel">
-      <h3>Browse saved shifts</h3>
-      <p class="sub">Load shifts already stored in the database for a date range, instead of uploading a file.</p>
-      <div class="db-row">
-        <label class="conn-label">From <input type="date" id="rangeFrom"></label>
-        <label class="conn-label">To <input type="date" id="rangeTo"></label>
-        <button class="btn ghost" id="loadRangeBtn">Load range</button>
-      </div>
-    </div>
-
-    <div class="dropzone" id="dropzone">
-      <div class="dz-icon">
+  <div class="wrap tab-panel" id="panel-mission">
+    <div class="placeholder-card">
+      <div class="rp-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 3v12m0-12l-4 4m4-4l4 4M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 3v6m0 0c-2.2 0-4 1.8-4 4v8h8v-8c0-2.2-1.8-4-4-4zM8 21h8" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>
-      <h2>Drop your roster export here</h2>
-      <p>or click to browse — accepts .xlsx / .xls / .csv</p>
-      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
-      <div id="filenameArea"></div>
+      <h3>Mission Food Compliance</h3>
+      <p>Food safety compliance checks and tracking for Mission will live here.</p>
+      <span class="placeholder-tag">Coming soon</span>
     </div>
+  </div>
 
-    <div class="sync-status" id="syncStatus">
-      <span id="syncStatusIcon"></span>
-      <span id="syncStatusText"></span>
-      <button class="btn ghost" id="syncBtn" style="margin-left:auto; display:none;">Sync again</button>
-    </div>
-
-    <div id="results" class="hidden">
-
-      <div class="summary">
-        <div class="stat total">
-          <div class="num" id="statTotal">0</div>
-          <div class="label">Total shifts</div>
-        </div>
-        <div class="stat missing">
-          <div class="num" id="statMissing">0</div>
-          <div class="label">Missing punch</div>
-        </div>
-        <div class="stat equal">
-          <div class="num" id="statEqual">0</div>
-          <div class="label">In = Out</div>
-        </div>
-        <div class="stat short">
-          <div class="num" id="statShort">0</div>
-          <div class="label">Short shift &lt;4h</div>
-        </div>
-        <div class="stat clean">
-          <div class="num" id="statClean">0</div>
-          <div class="label">Clean rows</div>
-        </div>
+  <div class="wrap tab-panel" id="panel-davies">
+    <div class="placeholder-card">
+      <div class="rp-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3v6m0 0c-2.2 0-4 1.8-4 4v8h8v-8c0-2.2-1.8-4-4-4zM8 21h8" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
-
-      <div class="toolbar">
-        <div class="filters">
-          <div class="chip active" data-filter="all">All flagged</div>
-          <div class="chip" data-filter="missing">Missing punch</div>
-          <div class="chip" data-filter="equal">In = Out</div>
-          <div class="chip" data-filter="short">Short shift</div>
-          <input type="text" class="search" id="searchBox" placeholder="Search employee or client…">
-        </div>
-        <div class="toolbar-right">
-          <button class="btn ghost" id="resetBtn">Upload another file</button>
-          <button class="btn ghost" id="exportCsvBtn">Export CSV (email format)</button>
-          <button class="btn ghost" id="exportColorBtn">Export colored report (.xls)</button>
-          <button class="btn teal" id="exportBtn">Export flagged (.xlsx)</button>
-        </div>
-      </div>
-
-      <div id="tableWrap"></div>
-      <div class="footer-note" id="footerNote"></div>
+      <h3>Davies Food Compliance</h3>
+      <p>Food safety compliance checks and tracking for Davies will live here.</p>
+      <span class="placeholder-tag">Coming soon</span>
     </div>
+  </div>
 
+  <div class="wrap tab-panel" id="panel-police">
+    <div class="placeholder-card">
+      <div class="rp-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 3l7 3v5c0 4.6-3 8.4-7 9.6-4-1.2-7-5-7-9.6V6l7-3z" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M9.5 12l1.8 1.8L14.5 10" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <h3>Expired Police Check</h3>
+      <p>Tracking for employees with expired or expiring police checks will live here.</p>
+      <span class="placeholder-tag">Coming soon</span>
+    </div>
   </div>
 
   </div>
 
+
+<script>
+(function(){
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.classList.contains('active')) return;
+      tabButtons.forEach(b => b.classList.remove('active'));
+      tabPanels.forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      const panel = document.getElementById(btn.dataset.tab);
+      if (panel) panel.classList.add('active');
+    });
+  });
+})();
+</script>
 <script>
 (function(){
   // ---------- Login gate ----------
@@ -545,6 +813,7 @@
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
   const resultsEl = document.getElementById('results');
+  const rightPlaceholder = document.getElementById('rightPlaceholder');
   const tableWrap = document.getElementById('tableWrap');
   const topStatus = document.getElementById('topStatus');
   const filenameArea = document.getElementById('filenameArea');
@@ -559,8 +828,15 @@
   const connDot = document.getElementById('connDot');
   const connLabel = document.getElementById('connLabel');
   const browsePanel = document.getElementById('browsePanel');
-  const rangeFrom = document.getElementById('rangeFrom');
-  const rangeTo = document.getElementById('rangeTo');
+  const dateRangeField = document.getElementById('dateRangeField');
+  const dateRangeLabel = document.getElementById('dateRangeLabel');
+  const dateRangePopover = document.getElementById('dateRangePopover');
+  const drPrev = document.getElementById('drPrev');
+  const drNext = document.getElementById('drNext');
+  const drMonthLabel = document.getElementById('drMonthLabel');
+  const drGrid = document.getElementById('drGrid');
+  const drClear = document.getElementById('drClear');
+  const drDone = document.getElementById('drDone');
   const loadRangeBtn = document.getElementById('loadRangeBtn');
 
   const syncStatus = document.getElementById('syncStatus');
@@ -575,6 +851,129 @@
   let currentFilter = 'all';
   let currentSearch = '';
   let lastVisible = [];   // rows currently shown on screen (post filter/search) — exports use this
+
+  // ---------- single-field calendar date-range picker ----------
+  const DOW_LABELS = ['S','M','T','W','T','F','S'];
+  const MONTH_LABELS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let drViewYear, drViewMonth; // month currently shown in the popover
+  let drStart = null, drEnd = null; // ISO 'YYYY-MM-DD' strings
+  let drPicking = 'start'; // whether the next click sets the start or end date
+
+  (function initDrView(){
+    const now = new Date();
+    drViewYear = now.getFullYear();
+    drViewMonth = now.getMonth();
+  })();
+
+  function drISO(y,m,d){
+    return `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+  function drFmtDisplay(iso){
+    if (!iso) return '';
+    const [y,m,d] = iso.split('-');
+    return `${d}/${m}/${y}`;
+  }
+  function updateDateRangeLabel(){
+    if (drStart && drEnd){
+      dateRangeLabel.textContent = `${drFmtDisplay(drStart)} \u2013 ${drFmtDisplay(drEnd)}`;
+      dateRangeField.classList.add('has-value');
+    } else if (drStart){
+      dateRangeLabel.textContent = `${drFmtDisplay(drStart)} \u2013 …`;
+      dateRangeField.classList.add('has-value');
+    } else {
+      dateRangeLabel.textContent = 'Select date range';
+      dateRangeField.classList.remove('has-value');
+    }
+  }
+
+  function renderDrCalendar(){
+    drMonthLabel.textContent = `${MONTH_LABELS[drViewMonth]} ${drViewYear}`;
+    const firstOfMonth = new Date(drViewYear, drViewMonth, 1);
+    const startWeekday = firstOfMonth.getDay();
+    const daysInMonth = new Date(drViewYear, drViewMonth + 1, 0).getDate();
+    const daysInPrevMonth = new Date(drViewYear, drViewMonth, 0).getDate();
+
+    let cells = [];
+    for (let i = startWeekday - 1; i >= 0; i--){
+      cells.push({ day: daysInPrevMonth - i, outside: true, y: drViewMonth === 0 ? drViewYear - 1 : drViewYear, m: (drViewMonth + 11) % 12 });
+    }
+    for (let d = 1; d <= daysInMonth; d++){
+      cells.push({ day: d, outside: false, y: drViewYear, m: drViewMonth });
+    }
+    while (cells.length % 7 !== 0){
+      const d = cells.length - (startWeekday + daysInMonth) + 1;
+      cells.push({ day: d, outside: true, y: drViewMonth === 11 ? drViewYear + 1 : drViewYear, m: (drViewMonth + 1) % 12 });
+    }
+
+    let html = DOW_LABELS.map(l => `<div class="dr-dow">${l}</div>`).join('');
+    for (const c of cells){
+      const iso = drISO(c.y, c.m, c.day);
+      const classes = ['dr-day'];
+      if (c.outside) classes.push('outside');
+      if (drStart && drEnd && iso >= drStart && iso <= drEnd) classes.push('in-range');
+      if (iso === drStart) classes.push('range-start');
+      if (iso === drEnd) classes.push('range-end');
+      html += `<div class="${classes.join(' ')}" data-iso="${iso}"><span class="dr-day-num">${c.day}</span></div>`;
+    }
+    drGrid.innerHTML = html;
+  }
+
+  drGrid.addEventListener('click', e => {
+    const cell = e.target.closest('.dr-day');
+    if (!cell) return;
+    const iso = cell.dataset.iso;
+    if (drPicking === 'start' || !drStart || (drStart && drEnd)){
+      drStart = iso;
+      drEnd = null;
+      drPicking = 'end';
+    } else {
+      if (iso < drStart){
+        drEnd = drStart;
+        drStart = iso;
+      } else {
+        drEnd = iso;
+      }
+      drPicking = 'start';
+    }
+    updateDateRangeLabel();
+    renderDrCalendar();
+  });
+
+  drPrev.addEventListener('click', () => {
+    drViewMonth--;
+    if (drViewMonth < 0){ drViewMonth = 11; drViewYear--; }
+    renderDrCalendar();
+  });
+  drNext.addEventListener('click', () => {
+    drViewMonth++;
+    if (drViewMonth > 11){ drViewMonth = 0; drViewYear++; }
+    renderDrCalendar();
+  });
+
+  drClear.addEventListener('click', () => {
+    drStart = null; drEnd = null; drPicking = 'start';
+    updateDateRangeLabel();
+    renderDrCalendar();
+  });
+
+  drDone.addEventListener('click', () => closeDrPopover());
+
+  function openDrPopover(){
+    dateRangePopover.classList.add('show');
+    dateRangeField.classList.add('open');
+    renderDrCalendar();
+  }
+  function closeDrPopover(){
+    dateRangePopover.classList.remove('show');
+    dateRangeField.classList.remove('open');
+  }
+  dateRangeField.addEventListener('click', e => {
+    e.stopPropagation();
+    if (dateRangePopover.classList.contains('show')) closeDrPopover();
+    else openDrPopover();
+  });
+  dateRangePopover.addEventListener('click', e => e.stopPropagation());
+  document.addEventListener('click', () => closeDrPopover());
 
   // ---------- column matching ----------
   const COLUMN_ALIASES = {
@@ -659,6 +1058,11 @@
     return String(v).trim();
   }
 
+  // Composite key used to match a local row to its database counterpart for edits/saves.
+  function rowKey(r){
+    return `${r.employee}|${r.shiftDateISO || ''}|${r.shiftStart}`;
+  }
+
   // Normalizes a shift-date cell to YYYY-MM-DD for Postgres's `date` column.
   // Handles ISO strings (already YYYY-MM-DD), Date objects, and common AU-style DD/MM/YYYY text.
   function toISODate(v){
@@ -678,6 +1082,21 @@
       return toISODate(parsed);
     }
     return null;
+  }
+
+  // Whether a row has a saved correction (used for row color + tag override).
+  function hasCorrection(r){
+    return !!(r.correctedIn && r.correctedIn.trim()) || !!(r.correctedOut && r.correctedOut.trim());
+  }
+
+  // Single source of truth for a row's background class — used both on initial render
+  // and when refreshing a single row right after a save.
+  function rowClassFor(r){
+    if (hasCorrection(r)) return 'row-corrected';
+    if (r.flags.includes('missing')) return 'row-missing';
+    if (r.flags.includes('short')) return 'row-short';
+    if (r.flags.includes('equal')) return 'row-equal';
+    return '';
   }
 
   // ---------- Supabase: auto-connect on load ----------
@@ -732,6 +1151,7 @@
         topStatus.textContent = 'Could not read file';
         tableWrap.innerHTML = `<div class="empty-state">Couldn't parse this file. Make sure it's a valid .xlsx/.xls/.csv export.<br><span class="muted">${err.message}</span></div>`;
         resultsEl.classList.remove('hidden');
+        rightPlaceholder.classList.add('hidden');
       }
     };
     reader.readAsArrayBuffer(file);
@@ -748,6 +1168,7 @@
     if (colMap.clockIn === -1 || colMap.clockOut === -1){
       tableWrap.innerHTML = `<div class="empty-state">Couldn't find CLOCKIN / CLOCKOUT columns in "${sheetName}". Check the headers match the roster export format.</div>`;
       resultsEl.classList.remove('hidden');
+      rightPlaceholder.classList.add('hidden');
       topStatus.textContent = 'Column mismatch';
       return;
     }
@@ -795,7 +1216,10 @@
         clockIn: isTrulyEmpty(rawIn) ? '' : (minIn !== null ? fmtMin(minIn) : displayVal(rawIn)),
         clockOut: isTrulyEmpty(rawOut) ? '' : (minOut !== null ? fmtMin(minOut) : displayVal(rawOut)),
         duration: durationMins,
-        flags: flags
+        flags: flags,
+        correctedIn: '',
+        correctedOut: '',
+        remarks: ''
       });
     }
 
@@ -831,6 +1255,7 @@
     fileInput.value = '';
     filenameArea.innerHTML = '';
     resultsEl.classList.add('hidden');
+    rightPlaceholder.classList.remove('hidden');
     topStatus.textContent = 'No file loaded';
     dataSource = null;
     hideSyncStatus();
@@ -873,6 +1298,84 @@
     syncStatus.classList.remove('show','syncing','success','warn','error');
   }
 
+  // ---------- inline editable corrections & remarks ----------
+  // Saves on blur (focusout bubbles, so one listener covers every row even after re-render).
+  tableWrap.addEventListener('focusout', e => {
+    const t = e.target;
+    if (!t.classList || (!t.classList.contains('correct-input') && !t.classList.contains('remarks-input'))) return;
+    const key = t.dataset.key;
+    const field = t.dataset.field;
+    const row = allRows.find(r => rowKey(r) === key);
+    if (!row) return;
+    const value = t.value.trim();
+    if (row[field] === value) return; // nothing changed, skip a needless save
+    const badge = t.parentElement.querySelector('[data-badge]');
+    saveCorrectionField(row, field, value, badge);
+  });
+  tableWrap.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.target.classList.contains('correct-input') || e.target.classList.contains('remarks-input'))){
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+
+  // After a field is saved, refresh just that row's background color + issue tag in place —
+  // no full re-render, so scroll position/filter/search stay untouched.
+  function refreshRowVisual(row){
+    const key = rowKey(row);
+    const tr = tableWrap.querySelector(`tr[data-rowkey="${cssEscapeAttr(key)}"]`);
+    if (!tr) return;
+    tr.className = rowClassFor(row);
+    const issueCell = tr.querySelector('[data-issue-cell]');
+    if (issueCell) issueCell.innerHTML = tagHtmlFor(row);
+  }
+
+  function cssEscapeAttr(s){
+    return String(s).replace(/["\\]/g, '\\$&');
+  }
+
+  async function saveCorrectionField(row, field, value, badge){
+    row[field] = value;
+
+    if (!badge) return;
+    badge.className = 'cell-save-badge saving show';
+    badge.innerHTML = '<span class="mini-spinner"></span> Saving…';
+
+    if (!sb){
+      badge.className = 'cell-save-badge warn show';
+      badge.textContent = 'Saved locally — DB not connected';
+      if (field === 'correctedIn' || field === 'correctedOut') refreshRowVisual(row);
+      return;
+    }
+    if (!row.employee || !row.shiftDateISO || !row.shiftStart){
+      badge.className = 'cell-save-badge warn show';
+      badge.textContent = 'Can\u2019t save — missing date/employee/start';
+      return;
+    }
+
+    const dbField = field === 'correctedIn' ? 'corrected_clock_in' : field === 'correctedOut' ? 'corrected_clock_out' : 'remarks';
+    const payload = {
+      employee: row.employee,
+      shift_date: row.shiftDateISO,
+      shift_start: row.shiftStart,
+      [dbField]: value || null,
+      updated_at: new Date().toISOString()
+    };
+
+    try{
+      const { error } = await sb.from('roster_shifts').upsert([payload], { onConflict: 'employee,shift_date,shift_start' });
+      if (error) throw error;
+      badge.className = 'cell-save-badge success show';
+      badge.textContent = 'Saved';
+      setTimeout(() => { badge.classList.remove('show'); }, 1800);
+      if (field === 'correctedIn' || field === 'correctedOut') refreshRowVisual(row);
+    }catch(err){
+      badge.className = 'cell-save-badge error show';
+      badge.textContent = 'Save failed — ' + (err.message || 'unknown error');
+      console.error(err);
+    }
+  }
+
   syncBtn.addEventListener('click', () => {
     if (allRows.length) syncToDatabase();
   });
@@ -897,6 +1400,17 @@
       const existingMap = new Map();
       for (const row of existing){
         existingMap.set(`${row.employee}|${row.shift_date}|${row.shift_start}`, row);
+      }
+
+      // Pull forward any corrections/remarks already saved in the database so they show up
+      // after this sync, and so this sync doesn't wipe them out when it upserts.
+      for (const r of prepared){
+        const existingRow = existingMap.get(rowKey(r));
+        if (existingRow){
+          r.correctedIn = existingRow.corrected_clock_in || '';
+          r.correctedOut = existingRow.corrected_clock_out || '';
+          r.remarks = existingRow.remarks || '';
+        }
       }
 
       const toUpsert = [];
@@ -961,6 +1475,7 @@
       if (skipped) parts.push(`${skipped} skipped (unreadable date/employee)`);
       const summary = 'Synced — ' + parts.join(' · ') + '.';
 
+      render();
       setSyncStatus(countReplaced > 0 ? 'warn' : 'success', summary, true);
     }catch(err){
       setSyncStatus('error', 'Sync failed: ' + (err.message || 'unknown error') + '.', true);
@@ -973,10 +1488,10 @@
   // ---------- Supabase: browse by date range ----------
   loadRangeBtn.addEventListener('click', async () => {
     if (!sb) return;
-    const from = rangeFrom.value;
-    const to = rangeTo.value;
+    const from = drStart;
+    const to = drEnd || drStart;
     if (!from || !to){
-      topStatus.textContent = 'Pick both a From and To date';
+      topStatus.textContent = 'Pick a date range first';
       return;
     }
     loadRangeBtn.disabled = true;
@@ -1005,7 +1520,10 @@
         clockIn: row.clock_in || '',
         clockOut: row.clock_out || '',
         duration: row.duration_minutes,
-        flags: row.flags || []
+        flags: row.flags || [],
+        correctedIn: row.corrected_clock_in || '',
+        correctedOut: row.corrected_clock_out || '',
+        remarks: row.remarks || ''
       }));
 
       dataSource = 'db';
@@ -1026,8 +1544,19 @@
     return allRows.filter(r => r.flags.length > 0);
   }
 
+  function tagHtmlFor(r){
+    if (hasCorrection(r)) return `<span class="tag corrected">Corrected</span>`;
+    return r.flags.map(f => {
+      if (f==='missing') return `<span class="tag missing">Missing punch</span>`;
+      if (f==='equal') return `<span class="tag equal">In = Out</span>`;
+      if (f==='short') return `<span class="tag short">Short shift</span>`;
+      return '';
+    }).join('');
+  }
+
   function render(){
     resultsEl.classList.remove('hidden');
+    rightPlaceholder.classList.add('hidden');
 
     const flagged = getFlaggedRows();
     const missingCount = flagged.filter(r => r.flags.includes('missing')).length;
@@ -1060,21 +1589,16 @@
       return;
     }
 
-    const tagHtml = (flags) => flags.map(f => {
-      if (f==='missing') return `<span class="tag missing">Missing punch</span>`;
-      if (f==='equal') return `<span class="tag equal">In = Out</span>`;
-      if (f==='short') return `<span class="tag short">Short shift</span>`;
-      return '';
-    }).join('');
-
     let html = `<table><thead><tr>
       <th>Day</th><th>Date</th><th>Client</th><th>Dept</th><th>Employee</th><th>Mobile</th><th>Position</th>
       <th>Clock In</th><th>Clock Out</th><th>Duration</th><th>Issue</th>
+      <th>Corrected In</th><th>Corrected Out</th><th>Remarks</th>
     </tr></thead><tbody>`;
 
     for (const r of visible){
-      const rowClass = r.flags.includes('missing') ? 'row-missing' : r.flags.includes('short') ? 'row-short' : r.flags.includes('equal') ? 'row-equal' : '';
-      html += `<tr class="${rowClass}">
+      const rowClass = rowClassFor(r);
+      const key = escapeHtml(rowKey(r));
+      html += `<tr class="${rowClass}" data-rowkey="${key}">
         <td>${escapeHtml(r.shiftDay)}</td>
         <td class="mono">${escapeHtml(r.shiftDate)}</td>
         <td>${escapeHtml(r.client)}</td>
@@ -1085,7 +1609,19 @@
         <td class="mono">${r.clockIn ? escapeHtml(r.clockIn) : '<span class="muted">—</span>'}</td>
         <td class="mono">${r.clockOut ? escapeHtml(r.clockOut) : '<span class="muted">—</span>'}</td>
         <td class="mono">${r.duration !== null ? fmtDuration(r.duration) : '<span class="muted">—</span>'}</td>
-        <td>${tagHtml(r.flags)}</td>
+        <td data-issue-cell>${tagHtmlFor(r)}</td>
+        <td class="edit-cell">
+          <input type="text" class="correct-input" data-key="${key}" data-field="correctedIn" placeholder="HH:MM" value="${escapeHtml(r.correctedIn)}">
+          <div class="cell-save-badge" data-badge></div>
+        </td>
+        <td class="edit-cell">
+          <input type="text" class="correct-input" data-key="${key}" data-field="correctedOut" placeholder="HH:MM" value="${escapeHtml(r.correctedOut)}">
+          <div class="cell-save-badge" data-badge></div>
+        </td>
+        <td class="remarks-cell">
+          <input type="text" class="remarks-input" data-key="${key}" data-field="remarks" placeholder="Add a note…" value="${escapeHtml(r.remarks)}" title="${escapeHtml(r.remarks)}">
+          <div class="cell-save-badge" data-badge></div>
+        </td>
       </tr>`;
     }
     html += `</tbody></table>`;
@@ -1124,11 +1660,14 @@
       'Clock In': r.clockIn,
       'Clock Out': r.clockOut,
       'Duration': r.duration !== null ? fmtDuration(r.duration) : '',
-      'Issue': issueLabel(r.flags)
+      'Issue': issueLabel(r.flags),
+      'Corrected Clock In': r.correctedIn,
+      'Corrected Clock Out': r.correctedOut,
+      'Remarks': r.remarks
     }));
     const ws = XLSX.utils.json_to_sheet(data);
     ws['!cols'] = [
-      {wch:22},{wch:14},{wch:26},{wch:18},{wch:20},{wch:8},{wch:12},{wch:10},{wch:10},{wch:9},{wch:9},{wch:10},{wch:24}
+      {wch:22},{wch:14},{wch:26},{wch:18},{wch:20},{wch:8},{wch:12},{wch:10},{wch:10},{wch:9},{wch:9},{wch:10},{wch:24},{wch:14},{wch:14},{wch:30}
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Flagged Shifts');
@@ -1142,7 +1681,7 @@
     const rows = lastVisible.length ? lastVisible : getFlaggedRows();
     if (!rows.length) return;
 
-    const headers = ['SHIFT DAY','SHIFT DATE','CLIENT','DEPARTMENT','EMPLOYEE','EMPLOYEE MOBILE','POSITION','CLOCKIN','CLOCKOUT'];
+    const headers = ['SHIFT DAY','SHIFT DATE','CLIENT','DEPARTMENT','EMPLOYEE','EMPLOYEE MOBILE','POSITION','CLOCKIN','CLOCKOUT','CORRECTED CLOCKIN','CORRECTED CLOCKOUT','REMARKS'];
     const csvRows = [headers];
 
     for (const r of rows){
@@ -1155,7 +1694,10 @@
         r.employeeMobile,
         r.position,
         r.clockIn,
-        r.clockOut
+        r.clockOut,
+        r.correctedIn,
+        r.correctedOut,
+        r.remarks
       ]);
     }
 
@@ -1197,13 +1739,13 @@
       flags.includes('short') ? '#C3EAD0' :
       flags.includes('equal') ? '#F7DFA4' : '#FFFFFF';
 
-    const headers = ['Shift Day','Shift Date','Client','Department','Employee','Employee Mobile','Position','Clock In','Clock Out','Issue'];
+    const headers = ['Shift Day','Shift Date','Client','Department','Employee','Employee Mobile','Position','Clock In','Clock Out','Issue','Corrected In','Corrected Out','Remarks'];
 
     let body = '';
     for (const r of rows){
       const bg = rowColor(r.flags);
       body += `<tr style="background:${bg};">` +
-        [r.shiftDay, r.shiftDate, r.client, r.department, r.employee, r.employeeMobile, r.position, r.clockIn, r.clockOut, issueLabel(r.flags)]
+        [r.shiftDay, r.shiftDate, r.client, r.department, r.employee, r.employeeMobile, r.position, r.clockIn, r.clockOut, issueLabel(r.flags), r.correctedIn, r.correctedOut, r.remarks]
           .map(v => `<td style="background:${bg};border:1px solid #ccc;padding:4px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${escapeHtml(v)}</td>`)
           .join('') +
         `</tr>`;
