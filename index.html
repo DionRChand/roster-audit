@@ -549,6 +549,8 @@
   .gl-just-reached li{ font-size:13px; margin:3px 0; }
   .gl-just-reached li b{ color: var(--navy-deep); }
 
+  .ex-daterow{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+
   /* ---------- Extractor tab ---------- */
   .ex-field-actions{ display:flex; gap:8px; margin: 4px 0 10px; }
   .ex-field-grid{
@@ -809,8 +811,30 @@
 
       <aside class="sidebar">
         <div class="db-panel">
+          <h3><span class="conn-dot connecting" id="exConnDot"></span> Database connection</h3>
+          <p class="sub" id="exConnLabel">Connecting to chandler-roster…</p>
+        </div>
+
+        <div class="db-panel">
+          <h3>Date range</h3>
+          <p class="sub">Pull shifts straight from the database for any range — independent of whatever's loaded on the Roster Audit tab.</p>
+          <div class="ex-daterow">
+            <div>
+              <label class="ex-label" for="exDateFrom">From</label>
+              <input type="date" id="exDateFrom" class="ex-select">
+            </div>
+            <div>
+              <label class="ex-label" for="exDateTo">To</label>
+              <input type="date" id="exDateTo" class="ex-select">
+            </div>
+          </div>
+          <button type="button" class="btn teal" id="exLoadRangeBtn" style="margin-top:10px; width:100%;">Load range</button>
+          <button type="button" class="btn ghost" id="exUseRosterBtn" style="margin-top:8px; width:100%;">Use Roster Audit tab's data instead</button>
+        </div>
+
+        <div class="db-panel">
           <h3>Columns to extract</h3>
-          <p class="sub">Pulled from whatever's currently loaded on the Roster Audit tab (uploaded file or a browsed date range) — <span id="exSourceCount">0 shifts</span> available right now.</p>
+          <p class="sub" id="exSourceLabel">No data loaded yet — load a range above, or switch to Roster Audit and come back.</p>
           <div class="ex-field-actions">
             <button type="button" class="btn ghost" id="exSelectAll">Select all</button>
             <button type="button" class="btn ghost" id="exSelectNone">Clear</button>
@@ -1299,8 +1323,14 @@
 <script>
 (function(){
   // ---------- Extractor ----------
-  // Reuses whatever's currently loaded on the Roster Audit tab (window.getRosterAuditRows()),
-  // so there's no separate upload step here — just pick columns and go.
+  // Two data sources: (a) whatever's currently loaded on the Roster Audit tab
+  // (window.getRosterAuditRows()), or (b) a date range queried directly from
+  // the database here, independent of the Roster Audit tab. Loading a range
+  // switches the active source to (b) until "Use Roster Audit tab's data
+  // instead" is clicked, which switches back to (a).
+
+  const EX_SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
+  const EX_SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
 
   const EX_FIELDS = [
     { key:'shiftDay',       label:'Shift Day' },
@@ -1322,8 +1352,14 @@
   ];
   const EX_DEFAULT_CHECKED = new Set(['shiftDay','shiftDate','client','department','employee','position','clockIn','clockOut','duration','issue','correctedIn','correctedOut','remarks']);
 
+  const exConnDot = document.getElementById('exConnDot');
+  const exConnLabel = document.getElementById('exConnLabel');
+  const exDateFrom = document.getElementById('exDateFrom');
+  const exDateTo = document.getElementById('exDateTo');
+  const exLoadRangeBtn = document.getElementById('exLoadRangeBtn');
+  const exUseRosterBtn = document.getElementById('exUseRosterBtn');
+  const exSourceLabel = document.getElementById('exSourceLabel');
   const exFieldGrid = document.getElementById('exFieldGrid');
-  const exSourceCount = document.getElementById('exSourceCount');
   const exSelectAll = document.getElementById('exSelectAll');
   const exSelectNone = document.getElementById('exSelectNone');
   const exGroupBy = document.getElementById('exGroupBy');
@@ -1333,6 +1369,87 @@
   const exPreview = document.getElementById('exPreview');
   const exPreviewTitle = document.getElementById('exPreviewTitle');
   const exPreviewBody = document.getElementById('exPreviewBody');
+
+  let exSb = null;
+  let exRangeRows = null;   // set once a date range is loaded here; null = "use Roster Audit's data"
+  let exRangeLabel = '';
+
+  async function exAutoConnect(){
+    try{
+      const client = window.supabase.createClient(EX_SUPABASE_URL, EX_SUPABASE_KEY);
+      const { error } = await client.from('roster_shifts').select('id', { count:'exact', head:true });
+      if (error) throw error;
+      exSb = client;
+      exConnDot.className = 'conn-dot on';
+      exConnLabel.textContent = 'Connected to chandler-roster';
+    }catch(err){
+      exSb = null;
+      exConnDot.className = 'conn-dot off';
+      exConnLabel.textContent = 'Connection failed — date-range loading needs this; Roster Audit tab data can still be used below';
+      console.error(err);
+    }
+  }
+  exAutoConnect();
+
+  exLoadRangeBtn.addEventListener('click', async () => {
+    const from = exDateFrom.value;
+    const to = exDateTo.value || from;
+    if (!from){
+      exStatus.textContent = 'Pick at least a "From" date first.';
+      return;
+    }
+    if (!exSb){
+      exStatus.textContent = 'Not connected to the database yet — try reloading the page.';
+      return;
+    }
+    exLoadRangeBtn.disabled = true;
+    exLoadRangeBtn.textContent = 'Loading…';
+    try{
+      const { data, error } = await exSb
+        .from('roster_shifts')
+        .select('*')
+        .gte('shift_date', from)
+        .lte('shift_date', to)
+        .order('shift_date', { ascending:true })
+        .order('employee', { ascending:true });
+      if (error) throw error;
+
+      exRangeRows = (data || []).map(row => ({
+        shiftDay: row.shift_day || '',
+        shiftDate: row.shift_date || '',
+        client: row.client || '',
+        department: row.department || '',
+        employee: row.employee || '',
+        employeeMobile: row.employee_mobile || '',
+        position: row.position || '',
+        shiftStart: row.shift_start || '',
+        shiftEnd: row.shift_end || '',
+        clockIn: row.clock_in || '',
+        clockOut: row.clock_out || '',
+        duration: row.duration_minutes,
+        flags: row.flags || [],
+        correctedIn: row.corrected_clock_in || '',
+        correctedOut: row.corrected_clock_out || '',
+        remarks: row.remarks || ''
+      }));
+      exRangeLabel = (from === to) ? `WE ${from}` : `${from} → ${to}`;
+      exStatus.textContent = `Loaded ${exRangeRows.length} shift(s) for ${exRangeLabel}.`;
+      window.exRefresh();
+    }catch(err){
+      exStatus.textContent = 'Could not load range: ' + (err.message || 'unknown error');
+      console.error(err);
+    }finally{
+      exLoadRangeBtn.disabled = false;
+      exLoadRangeBtn.textContent = 'Load range';
+    }
+  });
+
+  exUseRosterBtn.addEventListener('click', () => {
+    exRangeRows = null;
+    exRangeLabel = '';
+    exStatus.textContent = 'Switched to the Roster Audit tab\u2019s currently loaded data.';
+    window.exRefresh();
+  });
 
   // build checkboxes once
   exFieldGrid.innerHTML = EX_FIELDS.map(f =>
@@ -1362,14 +1479,20 @@
     return r[key] !== undefined && r[key] !== null ? r[key] : '';
   }
 
+  // active source: a loaded date range takes priority; otherwise fall back to
+  // whatever's currently on the Roster Audit tab
   function exGetRows(){
+    if (exRangeRows !== null) return exRangeRows;
     return (typeof window.getRosterAuditRows === 'function') ? (window.getRosterAuditRows() || []) : [];
   }
 
   // refreshed whenever the Extractor tab is opened (see tab-switch hook) and after every extract
   window.exRefresh = function(){
     const rows = exGetRows();
-    exSourceCount.textContent = `${rows.length} shift${rows.length === 1 ? '' : 's'}`;
+    const sourceDesc = exRangeRows !== null
+      ? `${rows.length} shift${rows.length === 1 ? '' : 's'} loaded for ${exRangeLabel}`
+      : `${rows.length} shift${rows.length === 1 ? '' : 's'} from the Roster Audit tab's current data`;
+    exSourceLabel.textContent = rows.length ? sourceDesc : 'No data loaded yet — load a range above, or switch to Roster Audit and come back.';
     if (!rows.length){
       exPlaceholder.classList.remove('hidden');
       exPreview.classList.add('hidden');
