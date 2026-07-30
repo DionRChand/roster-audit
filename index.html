@@ -475,6 +475,78 @@
   }
   .login-footer a{ color:#5f6368; text-decoration:none; margin-left:20px; }
   .login-footer a:hover{ text-decoration:underline; }
+
+  /* ---------- Mission Food Compliance tab ---------- */
+  .mchip{
+    border:1.5px solid var(--line); background:#fff; border-radius:20px;
+    padding:6px 13px; font-size:12.5px; font-weight:600; color: var(--text-soft);
+    cursor:pointer; user-select:none; transition: all .12s ease;
+  }
+  .mchip.active{ background: var(--navy); color:#fff; border-color: var(--navy); }
+
+  .ms-overview{ display:flex; gap:20px; align-items:stretch; flex-wrap:wrap; margin-top:26px; }
+  .ring-card{
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding:18px 22px; display:flex; align-items:center; gap:16px; flex-shrink:0;
+  }
+  .ring-wrap{
+    width:84px; height:84px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background: conic-gradient(var(--teal) calc(var(--pct,0)*1%), #EBEFF2 0);
+  }
+  .ring-wrap .ring-inner{
+    width:64px; height:64px; border-radius:50%; background:#fff;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .ring-inner .ring-num{ font-size:17px; font-weight:700; color: var(--navy-deep); line-height:1; }
+  .ring-text h4{ margin:0 0 3px; font-size:13.5px; font-weight:600; color:var(--text); }
+  .ring-text p{ margin:0; font-size:12px; color:var(--text-soft); max-width:200px; }
+  .ms-overview .summary{ flex:1; margin-top:0; min-width:280px; }
+
+  .doc-chip{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%; font-size:12px; font-weight:700;
+  }
+  .doc-chip.yes{ background:#D3EFE0; color:#1E7A4C; }
+  .doc-chip.no{ background:#FCEBEB; color:#C13D3D; }
+  td.doc-cell{ text-align:center; }
+
+  tbody tr.row-excluded{ background:#F1F3F5; color:#8A94A0; }
+  tbody tr.row-excluded:hover{ background:#E7EAED; }
+  tbody tr.row-excluded .doc-chip.yes{ background:#E1EAE4; color:#5E8A72; }
+  tbody tr.row-excluded .doc-chip.no{ background:#EFE3E3; color:#B0787C; }
+
+  .status-pill{
+    display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px;
+    letter-spacing:.3px; text-transform:uppercase;
+  }
+  .status-pill.active{ background:#D3EFE0; color:#1E7A4C; }
+  .status-pill.inactive{ background:#E6E9EC; color:#5B6B7A; }
+  .status-pill.excluded{ background:#EFE3F5; color:#6B4A9E; }
+
+  .excl-btn{
+    border:1.5px solid var(--line); background:#fff; border-radius:6px;
+    padding:5px 10px; font-size:11.5px; font-weight:600; color:var(--text-soft);
+    cursor:pointer; white-space:nowrap; transition: all .12s ease;
+  }
+  .excl-btn:hover{ border-color:var(--coral); color:var(--coral); }
+  .excl-btn.is-excluded{ background:#EFE3F5; border-color:#D9C4EC; color:#6B4A9E; }
+  .excl-btn.is-excluded:hover{ border-color:#6B4A9E; }
+
+  .recent-changes{
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    padding:16px 20px; margin-top:22px;
+  }
+  .recent-changes h4{ margin:0 0 10px; font-size:13px; font-weight:600; color:var(--text); }
+  .recent-changes .rc-row{
+    display:flex; align-items:baseline; gap:8px; font-size:12.5px; padding:5px 0;
+    border-bottom:1px solid #F0F3F5;
+  }
+  .recent-changes .rc-row:last-child{ border-bottom:none; }
+  .recent-changes .rc-name{ font-weight:600; color:var(--text); min-width:170px; }
+  .recent-changes .rc-detail{ color:var(--text-soft); }
+  .recent-changes .rc-old{ color:#C13D3D; }
+  .recent-changes .rc-new{ color:#1E7A4C; font-weight:600; }
 </style>
 </head>
 <body>
@@ -667,15 +739,113 @@
   </div>
 
   <div class="wrap tab-panel" id="panel-mission">
-    <div class="placeholder-card">
-      <div class="rp-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 3v6m0 0c-2.2 0-4 1.8-4 4v8h8v-8c0-2.2-1.8-4-4-4zM8 21h8" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <h3>Mission Food Compliance</h3>
-      <p>Food safety compliance checks and tracking for Mission will live here.</p>
-      <span class="placeholder-tag">Coming soon</span>
+    <div class="layout">
+
+      <aside class="sidebar">
+        <div class="db-panel">
+          <h3><span class="conn-dot connecting" id="msConnDot"></span> Database connection</h3>
+          <p class="sub" id="msConnLabel">Connecting to chandler-roster…</p>
+        </div>
+
+        <div class="dropzone" id="msDropzone">
+          <div class="dz-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3v12m0-12l-4 4m4-4l4 4M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h2>Drop the compliance report here</h2>
+          <p>or click to browse — accepts .xlsx / .xls / .csv</p>
+          <input type="file" id="msFileInput" accept=".xlsx,.xls,.csv">
+          <div id="msFilenameArea"></div>
+        </div>
+
+        <div class="sync-status" id="msSyncStatus">
+          <span id="msSyncStatusIcon"></span>
+          <span id="msSyncStatusText"></span>
+          <button class="btn ghost" id="msSyncBtn" style="margin-left:auto; display:none;">Sync again</button>
+        </div>
+
+        <div class="db-panel">
+          <h3>How this works</h3>
+          <p class="sub" style="margin-bottom:0;">Only these 5 checks are tracked: Mission Foods Induction, Training and verification, Visitor Induction, Confidentiality Agreement, and Dosafe food safety certificate. Every upload updates whichever of these changed for each casual — nothing is lost between uploads. Mark someone <b>Excluded</b> if they don't need Mission compliance; excluded and inactive profiles are kept out of the audit numbers.</p>
+        </div>
+      </aside>
+
+      <main class="main-col">
+
+        <div class="right-placeholder" id="msRightPlaceholder">
+          <div class="rp-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3v6m0 0c-2.2 0-4 1.8-4 4v8h8v-8c0-2.2-1.8-4-4-4zM8 21h8" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>No compliance data loaded yet</h3>
+          <p>Drop a compliance report on the left to load it, or wait a moment — saved records load automatically once connected.</p>
+        </div>
+
+        <div id="msResults" class="hidden">
+
+          <div class="ms-overview">
+            <div class="ring-card">
+              <div class="ring-wrap" id="msRingWrap" style="--pct:0;">
+                <div class="ring-inner"><div class="ring-num" id="msRingPct">0%</div></div>
+              </div>
+              <div class="ring-text">
+                <h4>Fully compliant</h4>
+                <p>Of active, non-excluded casuals — all 5 Mission docs on file.</p>
+              </div>
+            </div>
+            <div class="summary">
+              <div class="stat total">
+                <div class="num" id="msStatTotal">0</div>
+                <div class="label">Total profiles</div>
+              </div>
+              <div class="stat clean">
+                <div class="num" id="msStatCompliant">0</div>
+                <div class="label">Fully compliant</div>
+              </div>
+              <div class="stat missing">
+                <div class="num" id="msStatIncomplete">0</div>
+                <div class="label">Missing docs</div>
+              </div>
+              <div class="stat equal">
+                <div class="num" id="msStatExcluded">0</div>
+                <div class="label">Excluded</div>
+              </div>
+              <div class="stat short">
+                <div class="num" id="msStatInactive">0</div>
+                <div class="label">Inactive</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="recent-changes hidden" id="msRecentChanges">
+            <h4>Changes picked up from the last upload</h4>
+            <div id="msRecentChangesList"></div>
+          </div>
+
+          <div class="toolbar">
+            <div class="filters">
+              <div class="mchip active" data-msfilter="all">All</div>
+              <div class="mchip" data-msfilter="incomplete">Missing docs</div>
+              <div class="mchip" data-msfilter="active">Active</div>
+              <div class="mchip" data-msfilter="inactive">Inactive</div>
+              <div class="mchip" data-msfilter="excluded">Excluded</div>
+              <input type="text" class="search" id="msSearchBox" placeholder="Search name or candidate ID…">
+            </div>
+            <div class="toolbar-right">
+              <button class="btn ghost" id="msResetBtn">Upload another file</button>
+              <button class="btn ghost" id="msExportCsvBtn">Export CSV</button>
+              <button class="btn teal" id="msExportColorBtn">Export colored report (.xls)</button>
+            </div>
+          </div>
+
+          <div id="msTableWrap"></div>
+          <div class="footer-note" id="msFooterNote"></div>
+        </div>
+
+      </main>
+
     </div>
   </div>
 
@@ -1766,6 +1936,566 @@ ${body}
     const stamp = new Date().toISOString().slice(0,10);
     a.href = url;
     a.download = `roster-flagged-colored-${stamp}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+})();
+</script>
+<script>
+(function(){
+  // ---------- Mission Food Compliance ----------
+  const DOC_FIELDS = [
+    { key:'induction',       col:'mission_induction',        label:'Mission Foods Induction' },
+    { key:'training',        col:'mission_training',         label:'Mission Foods Training and verification' },
+    { key:'visitor',         col:'mission_visitor_induction',label:'Mission Foods Visitor Induction' },
+    { key:'confidentiality', col:'mission_confidentiality',  label:'Mission Foods Confidentiality Agreement' },
+    { key:'dosafe',          col:'dosafe_cert',              label:'Dosafe food safety certificate' }
+  ];
+
+  const SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
+
+  const msDropzone = document.getElementById('msDropzone');
+  const msFileInput = document.getElementById('msFileInput');
+  const msFilenameArea = document.getElementById('msFilenameArea');
+  const msResults = document.getElementById('msResults');
+  const msRightPlaceholder = document.getElementById('msRightPlaceholder');
+  const msTableWrap = document.getElementById('msTableWrap');
+  const msFooterNote = document.getElementById('msFooterNote');
+  const msSearchBox = document.getElementById('msSearchBox');
+
+  const msConnDot = document.getElementById('msConnDot');
+  const msConnLabel = document.getElementById('msConnLabel');
+
+  const msSyncStatus = document.getElementById('msSyncStatus');
+  const msSyncStatusIcon = document.getElementById('msSyncStatusIcon');
+  const msSyncStatusText = document.getElementById('msSyncStatusText');
+  const msSyncBtn = document.getElementById('msSyncBtn');
+
+  const msRingWrap = document.getElementById('msRingWrap');
+  const msRingPct = document.getElementById('msRingPct');
+  const msRecentChanges = document.getElementById('msRecentChanges');
+  const msRecentChangesList = document.getElementById('msRecentChangesList');
+
+  let msSb = null;
+  let msAllRows = [];       // canonical rows, mirrors the mission_compliance table
+  let msCurrentFilter = 'all';
+  let msCurrentSearch = '';
+  let msLastVisible = [];
+  let msLastUploadedRows = null; // rows parsed from the most recent file, for retry
+
+  const MS_ICONS = {
+    spinner: '<span class="sync-spinner"></span>',
+    check: `<svg class="sync-check" viewBox="0 0 24 24" fill="none">
+      <circle class="ring" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+      <path class="mark" d="M7 12.5l3.5 3.5L9.5 8.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+    warn: `<svg class="sync-warn-icon" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.22"/>
+      <path d="M12 7.5v6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="12" cy="16.3" r="1.15" fill="currentColor"/>
+    </svg>`,
+    error: `<svg class="sync-error-icon" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.22"/>
+      <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>`
+  };
+
+  function setMsSyncStatus(state, text, showRetry){
+    msSyncStatus.classList.remove('syncing','success','warn','error');
+    msSyncStatus.classList.add('show', state);
+    msSyncStatusText.textContent = text;
+    msSyncStatusIcon.innerHTML = state === 'syncing' ? MS_ICONS.spinner
+      : state === 'success' ? MS_ICONS.check
+      : state === 'warn' ? MS_ICONS.warn
+      : MS_ICONS.error;
+    msSyncBtn.style.display = showRetry ? '' : 'none';
+  }
+  function hideMsSyncStatus(){
+    msSyncStatus.classList.remove('show','syncing','success','warn','error');
+  }
+
+  // ---------- Supabase: auto-connect + load whatever is already saved ----------
+  async function msAutoConnect(){
+    msConnDot.className = 'conn-dot connecting';
+    msConnLabel.textContent = 'Connecting to chandler-roster…';
+    try{
+      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const { error } = await client.from('mission_compliance').select('id', { count:'exact', head:true });
+      if (error) throw error;
+      msSb = client;
+      msConnDot.className = 'conn-dot on';
+      msConnLabel.textContent = 'Connected to chandler-roster';
+      await msLoadFromDb();
+    }catch(err){
+      msSb = null;
+      msConnDot.className = 'conn-dot off';
+      msConnLabel.textContent = 'Connection failed — the mission_compliance table may not exist yet, or check your connection';
+      console.error(err);
+    }
+  }
+  msAutoConnect();
+
+  async function msLoadFromDb(){
+    if (!msSb) return;
+    const { data, error } = await msSb.from('mission_compliance').select('*').order('name', { ascending:true });
+    if (error){ console.error(error); return; }
+    if (data && data.length){
+      msAllRows = data.map(dbRowToLocal);
+      msRender();
+      msResults.classList.remove('hidden');
+      msRightPlaceholder.classList.add('hidden');
+      msFooterNote.textContent = `${data.length} saved profile(s) loaded from the database.`;
+    }
+  }
+
+  function dbRowToLocal(row){
+    const local = {
+      clientId: row.client_id || '',
+      candidateId: row.candidate_id,
+      name: row.name || '',
+      profileStatus: (row.profile_status || '').toUpperCase(),
+      excluded: !!row.excluded,
+      lastWeekending: row.last_weekending_worked || '',
+      updatedAt: row.updated_at || null
+    };
+    DOC_FIELDS.forEach(f => { local[f.key] = !!row[f.col]; });
+    return local;
+  }
+
+  // ---------- file handling ----------
+  msDropzone.addEventListener('click', () => msFileInput.click());
+  msDropzone.addEventListener('dragover', e => { e.preventDefault(); msDropzone.classList.add('drag'); });
+  msDropzone.addEventListener('dragleave', () => msDropzone.classList.remove('drag'));
+  msDropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    msDropzone.classList.remove('drag');
+    if (e.dataTransfer.files.length) msHandleFile(e.dataTransfer.files[0]);
+  });
+  msFileInput.addEventListener('change', e => {
+    if (e.target.files.length) msHandleFile(e.target.files[0]);
+  });
+
+  function msHandleFile(file){
+    msFilenameArea.innerHTML = `<div class="filename-pill"><span class="dot"></span>${file.name}</div>`;
+    hideMsSyncStatus();
+    msRecentChanges.classList.add('hidden');
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type:'array', cellDates:true });
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
+        msProcessRows(rows, sheetName);
+      }catch(err){
+        msTableWrap.innerHTML = `<div class="empty-state">Couldn't parse this file. Make sure it's a valid .xlsx/.xls/.csv export.<br><span class="muted">${err.message}</span></div>`;
+        msResults.classList.remove('hidden');
+        msRightPlaceholder.classList.add('hidden');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  const MS_COLUMN_ALIASES = {
+    clientId:       ['client id'],
+    candidateId:    ['candidate id'],
+    name:           ['name'],
+    induction:      ['mission foods induction'],
+    training:       ['mission foods training and verification'],
+    visitor:        ['mission foods visitor induction'],
+    confidentiality:['mission foods confidentiality agreement'],
+    dosafe:         ['dosafe food safety certificate'],
+    profileStatus:  ['profile status'],
+    lastWeekending: ['last weekending worked']
+  };
+
+  function msNormHeader(h){
+    return String(h || '').trim().toLowerCase().replace(/\s+/g,' ');
+  }
+  function msMapColumns(headerRow){
+    const norm = headerRow.map(msNormHeader);
+    const map = {};
+    for (const key in MS_COLUMN_ALIASES){
+      let idx = -1;
+      for (const alias of MS_COLUMN_ALIASES[key]){
+        idx = norm.indexOf(alias);
+        if (idx !== -1) break;
+      }
+      map[key] = idx;
+    }
+    return map;
+  }
+  function msYes(v){
+    if (v === null || v === undefined) return false;
+    return String(v).trim().toUpperCase() === 'Y';
+  }
+  function msVal(v){
+    if (v === null || v === undefined) return '';
+    if (v instanceof Date) return v.toLocaleDateString();
+    return String(v).trim();
+  }
+
+  function msProcessRows(rows, sheetName){
+    if (!rows.length){ msFooterNote.textContent = 'No data found in this file.'; return; }
+    const headerRow = rows[0];
+    const colMap = msMapColumns(headerRow);
+
+    if (colMap.candidateId === -1){
+      msTableWrap.innerHTML = `<div class="empty-state">Couldn't find a "Candidate ID" column in "${sheetName}". Check the headers match the compliance report format.</div>`;
+      msResults.classList.remove('hidden');
+      msRightPlaceholder.classList.add('hidden');
+      return;
+    }
+
+    const missingDocCols = DOC_FIELDS.filter(f => colMap[f.key] === -1);
+    if (missingDocCols.length){
+      msTableWrap.innerHTML = `<div class="empty-state">Couldn't find these columns: ${missingDocCols.map(f=>f.label).join(', ')}. Check the headers match the compliance report format.</div>`;
+      msResults.classList.remove('hidden');
+      msRightPlaceholder.classList.add('hidden');
+      return;
+    }
+
+    const parsed = [];
+    for (let i = 1; i < rows.length; i++){
+      const r = rows[i];
+      if (!r || r.every(c => c === null || c === '')) continue;
+      const get = (key) => colMap[key] !== undefined && colMap[key] !== -1 ? r[colMap[key]] : null;
+      const candidateId = msVal(get('candidateId'));
+      if (!candidateId) continue;
+
+      const row = {
+        clientId: msVal(get('clientId')),
+        candidateId,
+        name: msVal(get('name')),
+        profileStatus: msVal(get('profileStatus')).toUpperCase() || 'ACTIVE',
+        lastWeekending: msVal(get('lastWeekending'))
+      };
+      DOC_FIELDS.forEach(f => { row[f.key] = msYes(get(f.key)); });
+      parsed.push(row);
+    }
+
+    msLastUploadedRows = parsed;
+    msFooterNote.textContent = `${parsed.length} profile(s) read from "${sheetName}".`;
+
+    if (msSb){
+      msSyncToDatabase(parsed);
+    } else {
+      // No DB — just show what was uploaded, marked as not-excluded by default.
+      msAllRows = parsed.map(p => ({ ...p, excluded:false, updatedAt:null }));
+      msRender();
+      msResults.classList.remove('hidden');
+      msRightPlaceholder.classList.add('hidden');
+      setMsSyncStatus('warn', 'Not synced — database isn\u2019t connected yet.', false);
+    }
+  }
+
+  msSyncBtn.addEventListener('click', () => {
+    if (msLastUploadedRows) msSyncToDatabase(msLastUploadedRows);
+  });
+
+  // ---------- Supabase: diff + upsert-with-history sync ----------
+  async function msSyncToDatabase(parsed){
+    if (!msSb || !parsed.length) return;
+    msSyncBtn.disabled = true;
+    setMsSyncStatus('syncing', `Checking ${parsed.length} profiles against the database…`, false);
+
+    try{
+      const { data: existing, error: fetchErr } = await msSb.from('mission_compliance').select('*');
+      if (fetchErr) throw fetchErr;
+
+      const existingMap = new Map();
+      (existing || []).forEach(row => existingMap.set(row.candidate_id, row));
+
+      const toUpsert = [];
+      const historyRows = [];
+      let countNew = 0, countChanged = 0, countUnchanged = 0;
+      const changeLog = []; // for the "recent changes" panel
+
+      for (const r of parsed){
+        const existingRow = existingMap.get(r.candidateId);
+        const payload = {
+          client_id: r.clientId || null,
+          candidate_id: r.candidateId,
+          name: r.name || null,
+          profile_status: r.profileStatus || null,
+          last_weekending_worked: null, // left null unless a real date is supplied — raw text isn't reliably a date
+          excluded: existingRow ? !!existingRow.excluded : false,
+          updated_at: new Date().toISOString()
+        };
+        DOC_FIELDS.forEach(f => { payload[f.col] = r[f.key]; });
+
+        if (!existingRow){
+          toUpsert.push(payload);
+          countNew++;
+          continue;
+        }
+
+        const fieldChanges = [];
+        DOC_FIELDS.forEach(f => {
+          const oldV = !!existingRow[f.col], newV = r[f.key];
+          if (oldV !== newV){
+            fieldChanges.push({ label:f.label, old:oldV?'Y':'N', new:newV?'Y':'N' });
+            historyRows.push({
+              candidate_id: r.candidateId,
+              name: r.name,
+              field_changed: f.label,
+              old_value: oldV ? 'Y' : 'N',
+              new_value: newV ? 'Y' : 'N'
+            });
+          }
+        });
+        const oldStatus = (existingRow.profile_status || '').toUpperCase();
+        if (oldStatus && oldStatus !== r.profileStatus){
+          fieldChanges.push({ label:'Profile Status', old:oldStatus, new:r.profileStatus });
+          historyRows.push({
+            candidate_id: r.candidateId, name: r.name, field_changed:'Profile Status',
+            old_value: oldStatus, new_value: r.profileStatus
+          });
+        }
+
+        if (fieldChanges.length){
+          toUpsert.push(payload);
+          countChanged++;
+          changeLog.push({ name:r.name, candidateId:r.candidateId, changes:fieldChanges });
+        } else {
+          countUnchanged++;
+        }
+      }
+
+      if (historyRows.length){
+        const { error: histErr } = await msSb.from('mission_compliance_history').insert(historyRows);
+        if (histErr) throw histErr;
+      }
+      if (toUpsert.length){
+        const { error: upsertErr } = await msSb.from('mission_compliance').upsert(toUpsert, { onConflict:'candidate_id' });
+        if (upsertErr) throw upsertErr;
+      }
+
+      await msLoadFromDb();
+      msResults.classList.remove('hidden');
+      msRightPlaceholder.classList.add('hidden');
+
+      msRenderRecentChanges(changeLog);
+
+      const parts = [`${countNew} new`, `${countChanged} updated`, `${countUnchanged} unchanged`];
+      setMsSyncStatus(countChanged > 0 || countNew > 0 ? 'success' : 'success', 'Synced — ' + parts.join(' · ') + '.', true);
+    }catch(err){
+      console.error(err);
+      setMsSyncStatus('error', 'Sync failed — ' + (err.message || 'unknown error'), true);
+    } finally {
+      msSyncBtn.disabled = false;
+    }
+  }
+
+  function msRenderRecentChanges(changeLog){
+    if (!changeLog || !changeLog.length){
+      msRecentChanges.classList.add('hidden');
+      return;
+    }
+    msRecentChangesList.innerHTML = changeLog.map(c => `
+      <div class="rc-row">
+        <span class="rc-name">${msEsc(c.name)} <span class="muted">(${msEsc(c.candidateId)})</span></span>
+        <span class="rc-detail">${c.changes.map(ch => `${msEsc(ch.label)}: <span class="rc-old">${ch.old}</span> → <span class="rc-new">${ch.new}</span>`).join(' · ')}</span>
+      </div>
+    `).join('');
+    msRecentChanges.classList.remove('hidden');
+  }
+
+  // ---------- exclude / include toggle ----------
+  msTableWrap.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-toggle-exclude]');
+    if (!btn) return;
+    const candidateId = btn.dataset.toggleExclude;
+    const row = msAllRows.find(r => r.candidateId === candidateId);
+    if (!row) return;
+    const newVal = !row.excluded;
+
+    btn.disabled = true;
+    if (msSb){
+      try{
+        const { error } = await msSb.from('mission_compliance')
+          .update({ excluded: newVal, updated_at: new Date().toISOString() })
+          .eq('candidate_id', candidateId);
+        if (error) throw error;
+      }catch(err){
+        console.error(err);
+        btn.disabled = false;
+        alert('Couldn\u2019t save that change — ' + (err.message || 'unknown error'));
+        return;
+      }
+    }
+    row.excluded = newVal;
+    msRender();
+  });
+
+  // ---------- rendering ----------
+  document.querySelectorAll('.mchip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('.mchip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      msCurrentFilter = chip.dataset.msfilter;
+      msRender();
+    });
+  });
+
+  msSearchBox.addEventListener('input', () => {
+    msCurrentSearch = msSearchBox.value.trim().toLowerCase();
+    msRender();
+  });
+
+  document.getElementById('msResetBtn').addEventListener('click', () => {
+    msFileInput.value = '';
+    msFilenameArea.innerHTML = '';
+    msLastUploadedRows = null;
+    hideMsSyncStatus();
+    msRecentChanges.classList.add('hidden');
+    if (msSb) msLoadFromDb();
+  });
+
+  function msIsIncluded(r){ return r.profileStatus === 'ACTIVE' && !r.excluded; }
+  function msIsCompliant(r){ return DOC_FIELDS.every(f => r[f.key]); }
+
+  function msRender(){
+    const total = msAllRows.length;
+    const included = msAllRows.filter(msIsIncluded);
+    const compliant = included.filter(msIsCompliant);
+    const incomplete = included.filter(r => !msIsCompliant(r));
+    const excludedCount = msAllRows.filter(r => r.excluded).length;
+    const inactiveCount = msAllRows.filter(r => r.profileStatus !== 'ACTIVE').length;
+
+    document.getElementById('msStatTotal').textContent = total;
+    document.getElementById('msStatCompliant').textContent = compliant.length;
+    document.getElementById('msStatIncomplete').textContent = incomplete.length;
+    document.getElementById('msStatExcluded').textContent = excludedCount;
+    document.getElementById('msStatInactive').textContent = inactiveCount;
+
+    const pct = included.length ? Math.round((compliant.length / included.length) * 100) : 0;
+    msRingWrap.style.setProperty('--pct', pct);
+    msRingPct.textContent = pct + '%';
+
+    let filtered = msAllRows.filter(r => {
+      if (msCurrentFilter === 'incomplete') return msIsIncluded(r) && !msIsCompliant(r);
+      if (msCurrentFilter === 'active') return r.profileStatus === 'ACTIVE' && !r.excluded;
+      if (msCurrentFilter === 'inactive') return r.profileStatus !== 'ACTIVE';
+      if (msCurrentFilter === 'excluded') return r.excluded;
+      return true;
+    });
+    if (msCurrentSearch){
+      filtered = filtered.filter(r =>
+        (r.name || '').toLowerCase().includes(msCurrentSearch) ||
+        (r.candidateId || '').toLowerCase().includes(msCurrentSearch) ||
+        (r.clientId || '').toLowerCase().includes(msCurrentSearch)
+      );
+    }
+    msLastVisible = filtered;
+
+    if (!filtered.length){
+      msTableWrap.innerHTML = `<div class="empty-state">No profiles match this filter.</div>`;
+      return;
+    }
+
+    let html = `<table><thead><tr>
+      <th>Candidate ID</th><th>Name</th><th>Client ID</th>
+      ${DOC_FIELDS.map(f => `<th>${msEsc(f.label)}</th>`).join('')}
+      <th>Status</th><th>Action</th>
+    </tr></thead><tbody>`;
+
+    for (const r of filtered){
+      const rowClass = r.excluded || r.profileStatus !== 'ACTIVE'
+        ? 'row-excluded'
+        : (msIsCompliant(r) ? 'row-short' : 'row-missing');
+
+      const statusPill = r.excluded
+        ? `<span class="status-pill excluded">Excluded</span>`
+        : r.profileStatus === 'ACTIVE'
+          ? `<span class="status-pill active">Active</span>`
+          : `<span class="status-pill inactive">Inactive</span>`;
+
+      html += `<tr class="${rowClass}">
+        <td class="mono">${msEsc(r.candidateId)}</td>
+        <td>${msEsc(r.name)}</td>
+        <td>${msEsc(r.clientId)}</td>
+        ${DOC_FIELDS.map(f => `<td class="doc-cell"><span class="doc-chip ${r[f.key]?'yes':'no'}">${r[f.key]?'✓':'✕'}</span></td>`).join('')}
+        <td>${statusPill}</td>
+        <td><button class="excl-btn ${r.excluded?'is-excluded':''}" data-toggle-exclude="${msEsc(r.candidateId)}">${r.excluded?'Include':'Exclude'}</button></td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    msTableWrap.innerHTML = html;
+  }
+
+  function msEsc(v){
+    return String(v === null || v === undefined ? '' : v)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ---------- exports ----------
+  document.getElementById('msExportCsvBtn').addEventListener('click', msExportCsv);
+  document.getElementById('msExportColorBtn').addEventListener('click', msExportColored);
+
+  function msExportCsv(){
+    const rows = msLastVisible.length ? msLastVisible : msAllRows;
+    if (!rows.length) return;
+    const headers = ['Candidate ID','Name','Client ID', ...DOC_FIELDS.map(f=>f.label), 'Status', 'Excluded'];
+    const csvRows = [headers];
+    for (const r of rows){
+      csvRows.push([
+        r.candidateId, r.name, r.clientId,
+        ...DOC_FIELDS.map(f => r[f.key] ? 'Y' : 'N'),
+        r.excluded ? 'Excluded' : r.profileStatus,
+        r.excluded ? 'Y' : 'N'
+      ]);
+    }
+    const csvContent = csvRows.map(row => row.map(msCsvEscape).join(',')).join('\r\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `mission-compliance-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  function msCsvEscape(v){
+    const s = (v === null || v === undefined) ? '' : String(v);
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+
+  function msExportColored(){
+    const rows = msLastVisible.length ? msLastVisible : msAllRows;
+    if (!rows.length) return;
+    const rowColor = (r) => (r.excluded || r.profileStatus !== 'ACTIVE') ? '#E8EAED'
+      : msIsCompliant(r) ? '#C3EAD0' : '#F8C6C6';
+    const headers = ['Candidate ID','Name','Client ID', ...DOC_FIELDS.map(f=>f.label), 'Status'];
+    let body = '';
+    for (const r of rows){
+      const bg = rowColor(r);
+      const cells = [r.candidateId, r.name, r.clientId, ...DOC_FIELDS.map(f => r[f.key]?'Y':'N'), r.excluded?'Excluded':r.profileStatus];
+      body += `<tr style="background:${bg};">` +
+        cells.map(v => `<td style="background:${bg};border:1px solid #ccc;padding:4px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${msEsc(v)}</td>`).join('') +
+        `</tr>`;
+    }
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>Mission Compliance</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+<body><table>
+<tr>${headers.map(h => `<th style="background:#1F2E3F;color:#fff;border:1px solid #ccc;padding:5px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${msEsc(h)}</th>`).join('')}</tr>
+${body}
+</table></body></html>`;
+    const blob = new Blob([html], { type:'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `mission-compliance-colored-${stamp}.xls`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
