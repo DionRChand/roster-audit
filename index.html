@@ -532,6 +532,23 @@
   .status-pill.notprovided{ background:#FBF1DF; color:#B57A15; }
   .status-pill.approved{ background:#CFF3F4; color:#0B7A80; }
 
+  /* ---------- Goodman Level Checks: just-reached-152 banner ---------- */
+  .gl-just-reached{
+    background: var(--teal-soft);
+    border: 1px solid var(--teal);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 16px;
+  }
+  .gl-just-reached h4{
+    margin:0 0 8px; font-size:13px; font-weight:700; color: var(--navy-deep);
+    display:flex; align-items:center; gap:8px;
+  }
+  .gl-just-reached .gl-jr-note{ font-size:12px; color: var(--text-soft); margin:0 0 10px; }
+  .gl-just-reached ul{ margin:0; padding-left:18px; }
+  .gl-just-reached li{ font-size:13px; margin:3px 0; }
+  .gl-just-reached li b{ color: var(--navy-deep); }
+
   /* ---------- Police Check tab ---------- */
   .pc-date-input{
     width:100%; border:1.5px solid var(--line); border-radius:6px;
@@ -1135,6 +1152,8 @@
         </div>
 
         <div id="glResults" class="hidden">
+
+          <div id="glJustReachedWrap"></div>
 
           <div class="summary" style="grid-template-columns: repeat(3, 1fr);">
             <div class="stat total">
@@ -3944,6 +3963,10 @@ ${body}
   let glCurrentSearch = '';
   let glLastVisible = [];
   let glPendingUpload = null; // parsed-but-unconfirmed weekly summary, awaiting WE date confirmation
+  // employee IDs that crossed the 152hr threshold during a sync THIS SESSION.
+  // Plain JS variable (not localStorage/sessionStorage) — same pattern as the
+  // login gate above, so it clears automatically on refresh or re-login.
+  let glJustReachedIds = new Set();
 
   const GL_ICONS = {
     spinner: '<span class="sync-spinner"></span>',
@@ -4190,6 +4213,10 @@ ${body}
 
   // ---------- sync: log this week's hours to the ledger, then recompute running totals ----------
   async function glSyncWeek(summary, weDateIso){
+    // snapshot cumulative hours as they stood BEFORE this sync, so we can tell
+    // who crosses the 152hr line as a result of this specific upload
+    const preSyncCum = new Map(glAllRows.map(r => [r.employeeId, r.cumulativeHours]));
+
     if (!glSb){
       const map = new Map(glAllRows.map(r => [r.employeeId, r]));
       summary.forEach(m => {
@@ -4204,6 +4231,8 @@ ${body}
           lastWeDate: weDateIso,
           updatedAt: null
         });
+        const before = preSyncCum.get(m.employeeId) || 0;
+        if (before < GL_THRESHOLD && cum >= GL_THRESHOLD) glJustReachedIds.add(m.employeeId);
       });
       glAllRows = Array.from(map.values());
       glRender();
@@ -4244,6 +4273,8 @@ ${body}
 
       const mainPayload = summary.map(m => {
         const cum = cumMap.get(m.employeeId) || m.hours;
+        const before = preSyncCum.get(m.employeeId) || 0;
+        if (before < GL_THRESHOLD && cum >= GL_THRESHOLD) glJustReachedIds.add(m.employeeId);
         return {
           employee_id: m.employeeId,
           employee_name: m.name || null,
@@ -4301,7 +4332,38 @@ ${body}
     glRender();
   });
 
+  // Renders the "just crossed 152 hours" banner. Only shows employees whose ID
+  // is in glJustReachedIds — a plain in-memory Set that's only ever added to
+  // during a sync in THIS browser session, and is never persisted, so the
+  // banner disappears on refresh or re-login (same as the login gate).
+  function glRenderJustReached(){
+    const wrap = document.getElementById('glJustReachedWrap');
+    if (!wrap) return;
+    if (!glJustReachedIds.size){
+      wrap.innerHTML = '';
+      return;
+    }
+    const byId = new Map(glAllRows.map(r => [r.employeeId, r]));
+    const rows = Array.from(glJustReachedIds)
+      .map(id => byId.get(id))
+      .filter(Boolean)
+      .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    if (!rows.length){
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.innerHTML = `
+      <div class="gl-just-reached">
+        <h4>⚡ Just reached 152 hours (${rows.length})</h4>
+        <p class="gl-jr-note">Crossed the threshold on this upload. This list clears when you refresh the page or log out — it isn't saved anywhere.</p>
+        <ul>
+          ${rows.map(r => `<li><b>${glEsc(r.name)}</b> (${glEsc(r.employeeId)}) — ${r.cumulativeHours.toFixed(2)} hrs, now ${glEsc(r.position)}</li>`).join('')}
+        </ul>
+      </div>`;
+  }
+
   function glRender(){
+    glRenderJustReached();
     const computed = glAllRows.map(r => ({ r, status: glStatus(r.cumulativeHours) }));
 
     const total = computed.length;
