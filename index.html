@@ -1017,7 +1017,7 @@
 
         <div id="poResults" class="hidden">
 
-          <div class="summary" style="grid-template-columns: repeat(5, 1fr);">
+          <div class="summary" style="grid-template-columns: repeat(6, 1fr);">
             <div class="stat total">
               <div class="num" id="poStatTotal">0</div>
               <div class="label">Total casuals</div>
@@ -1033,6 +1033,10 @@
             <div class="stat equal">
               <div class="num" id="poStatNotProvided">0</div>
               <div class="label">Not provided</div>
+            </div>
+            <div class="stat missing" style="border-top-color:#C1554A;">
+              <div class="num" id="poStatPending">0</div>
+              <div class="label">Pending (expired + not provided)</div>
             </div>
             <div class="stat short">
               <div class="num" id="poStatApproved">0</div>
@@ -1051,6 +1055,7 @@
               <div class="mchip" data-pofilter="expired">Expired</div>
               <div class="mchip" data-pofilter="notexpired">Not expired</div>
               <div class="mchip" data-pofilter="notprovided">Not provided</div>
+              <div class="mchip" data-pofilter="pending">Pending</div>
               <div class="mchip" data-pofilter="approved">Approved by client</div>
               <input type="text" class="search" id="poSearchBox" placeholder="Search name or employee ID…">
             </div>
@@ -3650,14 +3655,21 @@ ${body}
     const expiredCount = computed.filter(c => c.status === 'expired').length;
     const notProvidedCount = computed.filter(c => c.status === 'notprovided').length;
     const approvedCount = computed.filter(c => c.status === 'approved').length;
+    const pendingCount = expiredCount + notProvidedCount;
 
     document.getElementById('poStatTotal').textContent = total;
     document.getElementById('poStatOk').textContent = okCount;
     document.getElementById('poStatExpired').textContent = expiredCount;
     document.getElementById('poStatNotProvided').textContent = notProvidedCount;
     document.getElementById('poStatApproved').textContent = approvedCount;
+    document.getElementById('poStatPending').textContent = pendingCount;
 
-    let filtered = computed.filter(c => poCurrentFilter === 'all' ? true : c.status === poCurrentFilter);
+    const PO_FILTER_STATUSES = { pending: ['expired', 'notprovided'] };
+    let filtered = computed.filter(c => {
+      if (poCurrentFilter === 'all') return true;
+      if (PO_FILTER_STATUSES[poCurrentFilter]) return PO_FILTER_STATUSES[poCurrentFilter].includes(c.status);
+      return c.status === poCurrentFilter;
+    });
     if (poCurrentSearch){
       filtered = filtered.filter(c =>
         (c.r.name || '').toLowerCase().includes(poCurrentSearch) ||
