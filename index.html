@@ -549,6 +549,34 @@
   .gl-just-reached li{ font-size:13px; margin:3px 0; }
   .gl-just-reached li b{ color: var(--navy-deep); }
 
+  /* ---------- Extractor tab ---------- */
+  .ex-field-actions{ display:flex; gap:8px; margin: 4px 0 10px; }
+  .ex-field-grid{
+    display:grid; grid-template-columns: 1fr 1fr; gap:6px 10px;
+  }
+  .ex-field-grid label{
+    display:flex; align-items:center; gap:7px; font-size:13px; color: var(--text);
+    padding:4px 6px; border-radius:6px; cursor:pointer;
+  }
+  .ex-field-grid label:hover{ background: var(--teal-soft); }
+  .ex-field-grid input[type="checkbox"]{ accent-color: var(--teal); width:14px; height:14px; flex-shrink:0; }
+  .ex-label{ display:block; font-size:12px; font-weight:600; color: var(--text-soft); margin: 2px 0 6px; }
+  .ex-select{
+    width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:8px;
+    font-size:13px; font-family:inherit; background:#fff; color: var(--text);
+  }
+  .ex-preview-card{
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding:20px 24px;
+  }
+  .ex-preview-card h3{ margin:0 0 10px; font-size:15px; }
+  .ex-group-row{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:9px 4px; border-bottom:1px solid var(--line); font-size:13px;
+  }
+  .ex-group-row:last-child{ border-bottom:none; }
+  .ex-group-row b{ color: var(--navy-deep); }
+  .ex-group-count{ color: var(--text-soft); }
+
   /* ---------- Police Check tab ---------- */
   .pc-date-input{
     width:100%; border:1.5px solid var(--line); border-radius:6px;
@@ -648,6 +676,7 @@
 
   <div class="tabbar">
     <button class="tab-btn active" data-tab="panel-roster" type="button"><span class="tab-dot"></span>Roster Audit</button>
+    <button class="tab-btn" data-tab="panel-extractor" type="button"><span class="tab-dot"></span>Extractor</button>
     <button class="tab-btn" data-tab="panel-mission" type="button"><span class="tab-dot"></span>Mission Food Compliance</button>
     <button class="tab-btn" data-tab="panel-davies" type="button"><span class="tab-dot"></span>Davies Food Compliance</button>
     <button class="tab-btn" data-tab="panel-police" type="button"><span class="tab-dot"></span>Expired Police Check</button>
@@ -770,6 +799,60 @@
           <div class="footer-note" id="footerNote"></div>
         </div>
 
+      </main>
+
+    </div>
+  </div>
+
+  <div class="wrap tab-panel" id="panel-extractor">
+    <div class="layout">
+
+      <aside class="sidebar">
+        <div class="db-panel">
+          <h3>Columns to extract</h3>
+          <p class="sub">Pulled from whatever's currently loaded on the Roster Audit tab (uploaded file or a browsed date range) — <span id="exSourceCount">0 shifts</span> available right now.</p>
+          <div class="ex-field-actions">
+            <button type="button" class="btn ghost" id="exSelectAll">Select all</button>
+            <button type="button" class="btn ghost" id="exSelectNone">Clear</button>
+          </div>
+          <div class="ex-field-grid" id="exFieldGrid"><!-- checkboxes injected by JS --></div>
+          <p class="sub" style="margin-top:10px;">Employee ID and Work Break aren't captured by the Roster Audit tab today, so they're not selectable here yet — let me know if those need adding to the source data.</p>
+        </div>
+
+        <div class="db-panel">
+          <h3>Output</h3>
+          <p class="sub">Extract everything into one file, or split into a separate file per value of a field (e.g. one file per Department).</p>
+          <label class="ex-label" for="exGroupBy">Split output by</label>
+          <select id="exGroupBy" class="ex-select">
+            <option value="none">Don't split — one file</option>
+            <option value="department">Department</option>
+            <option value="client">Client</option>
+            <option value="position">Position</option>
+            <option value="employee">Employee</option>
+          </select>
+          <button type="button" class="btn teal" id="exExtractBtn" style="margin-top:14px; width:100%;">Extract</button>
+          <div class="footer-note" id="exStatus"></div>
+        </div>
+      </aside>
+
+      <main class="main-col">
+        <div class="right-placeholder" id="exPlaceholder">
+          <div class="rp-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="3" y="4" width="18" height="16" rx="2" stroke="#0CBBC1" stroke-width="1.8"/>
+              <path d="M3 9h18M8 4v16" stroke="#0CBBC1" stroke-width="1.8"/>
+            </svg>
+          </div>
+          <h3>Nothing loaded yet</h3>
+          <p>Go to the Roster Audit tab, load a file or a date range, then come back here to pick columns and extract.</p>
+        </div>
+
+        <div id="exPreview" class="hidden">
+          <div class="ex-preview-card">
+            <h3 id="exPreviewTitle">Preview</h3>
+            <div id="exPreviewBody"></div>
+          </div>
+        </div>
       </main>
 
     </div>
@@ -1208,8 +1291,188 @@
       btn.classList.add('active');
       const panel = document.getElementById(btn.dataset.tab);
       if (panel) panel.classList.add('active');
+      if (btn.dataset.tab === 'panel-extractor' && typeof window.exRefresh === 'function') window.exRefresh();
     });
   });
+})();
+</script>
+<script>
+(function(){
+  // ---------- Extractor ----------
+  // Reuses whatever's currently loaded on the Roster Audit tab (window.getRosterAuditRows()),
+  // so there's no separate upload step here — just pick columns and go.
+
+  const EX_FIELDS = [
+    { key:'shiftDay',       label:'Shift Day' },
+    { key:'shiftDate',      label:'Shift Date' },
+    { key:'client',         label:'Client' },
+    { key:'department',     label:'Department' },
+    { key:'employee',       label:'Employee' },
+    { key:'employeeMobile', label:'Employee Mobile' },
+    { key:'position',       label:'Position' },
+    { key:'shiftStart',     label:'Shift Start' },
+    { key:'shiftEnd',       label:'Shift End' },
+    { key:'clockIn',        label:'Clock In' },
+    { key:'clockOut',       label:'Clock Out' },
+    { key:'duration',       label:'Duration' },
+    { key:'issue',          label:'Issue' },
+    { key:'correctedIn',    label:'Corrected In' },
+    { key:'correctedOut',   label:'Corrected Out' },
+    { key:'remarks',        label:'Remarks' }
+  ];
+  const EX_DEFAULT_CHECKED = new Set(['shiftDay','shiftDate','client','department','employee','position','clockIn','clockOut','duration','issue','correctedIn','correctedOut','remarks']);
+
+  const exFieldGrid = document.getElementById('exFieldGrid');
+  const exSourceCount = document.getElementById('exSourceCount');
+  const exSelectAll = document.getElementById('exSelectAll');
+  const exSelectNone = document.getElementById('exSelectNone');
+  const exGroupBy = document.getElementById('exGroupBy');
+  const exExtractBtn = document.getElementById('exExtractBtn');
+  const exStatus = document.getElementById('exStatus');
+  const exPlaceholder = document.getElementById('exPlaceholder');
+  const exPreview = document.getElementById('exPreview');
+  const exPreviewTitle = document.getElementById('exPreviewTitle');
+  const exPreviewBody = document.getElementById('exPreviewBody');
+
+  // build checkboxes once
+  exFieldGrid.innerHTML = EX_FIELDS.map(f =>
+    `<label><input type="checkbox" class="ex-check" value="${f.key}" ${EX_DEFAULT_CHECKED.has(f.key) ? 'checked' : ''}> ${f.label}</label>`
+  ).join('');
+
+  exSelectAll.addEventListener('click', () => {
+    exFieldGrid.querySelectorAll('.ex-check').forEach(c => c.checked = true);
+  });
+  exSelectNone.addEventListener('click', () => {
+    exFieldGrid.querySelectorAll('.ex-check').forEach(c => c.checked = false);
+  });
+
+  function exFmtDuration(mins){
+    if (mins === null || mins === undefined || mins === '') return '';
+    const h = Math.floor(mins/60), m = mins % 60;
+    return h + 'h ' + (m ? m + 'm' : '');
+  }
+  function exIssueLabel(flags){
+    if (!flags || !flags.length) return '';
+    return flags.map(f => f==='missing' ? 'Missing punch' : f==='equal' ? 'In = Out' : f==='short' ? 'Short shift <4h' : f).join('; ');
+  }
+  // pulls the display value for one field off a roster row
+  function exFieldValue(r, key){
+    if (key === 'duration') return exFmtDuration(r.duration);
+    if (key === 'issue') return exIssueLabel(r.flags);
+    return r[key] !== undefined && r[key] !== null ? r[key] : '';
+  }
+
+  function exGetRows(){
+    return (typeof window.getRosterAuditRows === 'function') ? (window.getRosterAuditRows() || []) : [];
+  }
+
+  // refreshed whenever the Extractor tab is opened (see tab-switch hook) and after every extract
+  window.exRefresh = function(){
+    const rows = exGetRows();
+    exSourceCount.textContent = `${rows.length} shift${rows.length === 1 ? '' : 's'}`;
+    if (!rows.length){
+      exPlaceholder.classList.remove('hidden');
+      exPreview.classList.add('hidden');
+      return;
+    }
+    exPlaceholder.classList.add('hidden');
+    exPreview.classList.remove('hidden');
+    exRenderPreview(rows);
+  };
+
+  function exSelectedFields(){
+    return EX_FIELDS.filter(f => exFieldGrid.querySelector(`.ex-check[value="${f.key}"]`).checked);
+  }
+
+  function exRenderPreview(rows){
+    const groupKey = exGroupBy.value;
+    if (groupKey === 'none'){
+      exPreviewTitle.textContent = 'Preview';
+      exPreviewBody.innerHTML = `<div class="ex-group-row"><b>All loaded shifts</b><span class="ex-group-count">${rows.length} row${rows.length===1?'':'s'} → 1 file</span></div>`;
+      return;
+    }
+    const groups = new Map();
+    for (const r of rows){
+      const val = (r[groupKey] || '(blank)').toString();
+      groups.set(val, (groups.get(val) || 0) + 1);
+    }
+    const sorted = Array.from(groups.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+    exPreviewTitle.textContent = `Preview — will produce ${sorted.length} file${sorted.length===1?'':'s'}`;
+    exPreviewBody.innerHTML = sorted.map(([val, count]) =>
+      `<div class="ex-group-row"><b>${exEsc(val)}</b><span class="ex-group-count">${count} row${count===1?'':'s'}</span></div>`
+    ).join('');
+  }
+
+  exGroupBy.addEventListener('change', () => exRenderPreview(exGetRows()));
+
+  function exEsc(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function exSlug(s){
+    return String(s || 'blank').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'blank';
+  }
+
+  function exBuildSheetData(rows, fields){
+    return rows.map(r => {
+      const obj = {};
+      fields.forEach(f => { obj[f.label] = exFieldValue(r, f.key); });
+      return obj;
+    });
+  }
+
+  function exDownloadOne(rows, fields, filename, sheetName){
+    const data = exBuildSheetData(rows, fields);
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31) || 'Sheet1');
+    XLSX.writeFile(wb, filename);
+  }
+
+  exExtractBtn.addEventListener('click', async () => {
+    const rows = exGetRows();
+    if (!rows.length){
+      exStatus.textContent = 'Nothing to extract — load shifts on the Roster Audit tab first.';
+      return;
+    }
+    const fields = exSelectedFields();
+    if (!fields.length){
+      exStatus.textContent = 'Pick at least one column first.';
+      return;
+    }
+    const stamp = new Date().toISOString().slice(0,10);
+    const groupKey = exGroupBy.value;
+
+    if (groupKey === 'none'){
+      exDownloadOne(rows, fields, `roster-extract-${stamp}.xlsx`, 'Extract');
+      exStatus.textContent = `Downloaded 1 file (${rows.length} row${rows.length===1?'':'s'}).`;
+      return;
+    }
+
+    const groups = new Map();
+    for (const r of rows){
+      const val = (r[groupKey] || '(blank)').toString();
+      if (!groups.has(val)) groups.set(val, []);
+      groups.get(val).push(r);
+    }
+    const entries = Array.from(groups.entries()).sort((a,b) => a[0].localeCompare(b[0]));
+
+    exExtractBtn.disabled = true;
+    exStatus.textContent = `Preparing ${entries.length} file(s)…`;
+    // small delay between downloads — most browsers block/queue rapid-fire multi-file downloads otherwise
+    for (let i = 0; i < entries.length; i++){
+      const [val, groupRows] = entries[i];
+      const filename = `roster-extract-${exSlug(groupKey)}-${exSlug(val)}-${stamp}.xlsx`;
+      exDownloadOne(groupRows, fields, filename, val);
+      exStatus.textContent = `Downloaded ${i+1} of ${entries.length}: ${val}`;
+      if (i < entries.length - 1) await new Promise(res => setTimeout(res, 400));
+    }
+    exExtractBtn.disabled = false;
+    exStatus.textContent = `Done — ${entries.length} file(s) downloaded, one per ${groupKey}. Your browser may have asked to allow multiple downloads.`;
+  });
+
+  // in case this tab happens to be active on load (it isn't by default, but stay consistent)
+  window.exRefresh();
 })();
 </script>
 <script>
@@ -1335,6 +1598,10 @@
   let dataSource = null;     // 'file' | 'db'
 
   let allRows = [];       // every parsed row with computed flags
+  // exposes the live Roster Audit data to the Extractor tab (separate IIFE below).
+  // Returns the current array by reference each call, so it always reflects
+  // whatever's most recently loaded here — no copying/syncing needed.
+  window.getRosterAuditRows = function(){ return allRows; };
   let currentFilter = 'all';
   let currentSearch = '';
   let lastVisible = [];   // rows currently shown on screen (post filter/search) — exports use this
