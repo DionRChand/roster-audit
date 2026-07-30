@@ -523,6 +523,20 @@
   .status-pill.active{ background:#D3EFE0; color:#1E7A4C; }
   .status-pill.inactive{ background:#E6E9EC; color:#5B6B7A; }
   .status-pill.excluded{ background:#EFE3F5; color:#6B4A9E; }
+  .status-pill.notexpired{ background:#D3EFE0; color:#1E7A4C; }
+  .status-pill.expired{ background:#FCEBEB; color:#C13D3D; }
+  .status-pill.notprovided{ background:#FBF1DF; color:#B57A15; }
+
+  /* ---------- Police Check tab ---------- */
+  .pc-date-input{
+    width:100%; border:1.5px solid var(--line); border-radius:6px;
+    padding:6px 7px; font-size:12px; font-family:inherit; color:var(--text);
+    background:#FCFDFD; transition: border-color .15s ease, background .15s ease;
+    box-sizing:border-box;
+  }
+  .pc-date-input:focus{ outline:none; border-color: var(--teal); background:#fff; }
+  td.pc-editable{ min-width:150px; }
+  .pc-auto{ font-size:12.5px; color:var(--text-soft); }
 
   .excl-btn{
     border:1.5px solid var(--line); background:#fff; border-radius:6px;
@@ -951,16 +965,93 @@
   </div>
 
   <div class="wrap tab-panel" id="panel-police">
-    <div class="placeholder-card">
-      <div class="rp-icon">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 3l7 3v5c0 4.6-3 8.4-7 9.6-4-1.2-7-5-7-9.6V6l7-3z" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M9.5 12l1.8 1.8L14.5 10" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-      <h3>Expired Police Check</h3>
-      <p>Tracking for employees with expired or expiring police checks will live here.</p>
-      <span class="placeholder-tag">Coming soon</span>
+    <div class="layout">
+
+      <aside class="sidebar">
+        <div class="db-panel">
+          <h3><span class="conn-dot connecting" id="poConnDot"></span> Database connection</h3>
+          <p class="sub" id="poConnLabel">Connecting to chandler-roster…</p>
+        </div>
+
+        <div class="dropzone" id="poDropzone">
+          <div class="dz-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3v12m0-12l-4 4m4-4l4 4M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h2>Drop a casual list here</h2>
+          <p>or click to browse — accepts .xlsx / .xls / .csv</p>
+          <input type="file" id="poFileInput" accept=".xlsx,.xls,.csv">
+          <div id="poFilenameArea"></div>
+        </div>
+
+        <div class="sync-status" id="poSyncStatus">
+          <span id="poSyncStatusIcon"></span>
+          <span id="poSyncStatusText"></span>
+          <button class="btn ghost" id="poSyncBtn" style="margin-left:auto; display:none;">Sync again</button>
+        </div>
+
+        <div class="db-panel">
+          <h3>How this works</h3>
+          <p class="sub" style="margin-bottom:0;">Police check dates, verification officer, and remarks are entered manually below — edit any cell and it saves automatically. Uploading a simple Employee/Employee ID list here only <b>adds casuals that aren't already on the list</b> (with blank police check fields to fill in) — it never overwrites an existing person's data. Expired Date, Days Remaining, and Status are calculated automatically from the Received Date (received date + 3 years).</p>
+        </div>
+      </aside>
+
+      <main class="main-col">
+
+        <div class="right-placeholder" id="poRightPlaceholder">
+          <div class="rp-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3l7 3v5c0 4.6-3 8.4-7 9.6-4-1.2-7-5-7-9.6V6l7-3z" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9.5 12l1.8 1.8L14.5 10" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>No casuals loaded yet</h3>
+          <p>Drop a casual list on the left to add people, or wait a moment — saved records load automatically once connected.</p>
+        </div>
+
+        <div id="poResults" class="hidden">
+
+          <div class="summary" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="stat total">
+              <div class="num" id="poStatTotal">0</div>
+              <div class="label">Total casuals</div>
+            </div>
+            <div class="stat clean">
+              <div class="num" id="poStatOk">0</div>
+              <div class="label">Not expired</div>
+            </div>
+            <div class="stat missing">
+              <div class="num" id="poStatExpired">0</div>
+              <div class="label">Expired</div>
+            </div>
+            <div class="stat equal">
+              <div class="num" id="poStatNotProvided">0</div>
+              <div class="label">Not provided</div>
+            </div>
+          </div>
+
+          <div class="toolbar">
+            <div class="filters">
+              <div class="mchip active" data-pofilter="all">All</div>
+              <div class="mchip" data-pofilter="expired">Expired</div>
+              <div class="mchip" data-pofilter="notexpired">Not expired</div>
+              <div class="mchip" data-pofilter="notprovided">Not provided</div>
+              <input type="text" class="search" id="poSearchBox" placeholder="Search name or employee ID…">
+            </div>
+            <div class="toolbar-right">
+              <button class="btn ghost" id="poResetBtn">Upload another file</button>
+              <button class="btn ghost" id="poExportCsvBtn">Export CSV</button>
+              <button class="btn teal" id="poExportColorBtn">Export colored report (.xls)</button>
+            </div>
+          </div>
+
+          <div id="poTableWrap"></div>
+          <div class="footer-note" id="poFooterNote"></div>
+        </div>
+
+      </main>
+
     </div>
   </div>
 
@@ -3070,6 +3161,570 @@ ${body}
     const stamp = new Date().toISOString().slice(0,10);
     a.href = url;
     a.download = `davies-compliance-colored-${stamp}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+})();
+</script>
+<script>
+(function(){
+  // ---------- Police Check (manual entry, add-only upload) ----------
+  const SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
+
+  const poDropzone = document.getElementById('poDropzone');
+  const poFileInput = document.getElementById('poFileInput');
+  const poFilenameArea = document.getElementById('poFilenameArea');
+  const poResults = document.getElementById('poResults');
+  const poRightPlaceholder = document.getElementById('poRightPlaceholder');
+  const poTableWrap = document.getElementById('poTableWrap');
+  const poFooterNote = document.getElementById('poFooterNote');
+  const poSearchBox = document.getElementById('poSearchBox');
+
+  const poConnDot = document.getElementById('poConnDot');
+  const poConnLabel = document.getElementById('poConnLabel');
+
+  const poSyncStatus = document.getElementById('poSyncStatus');
+  const poSyncStatusIcon = document.getElementById('poSyncStatusIcon');
+  const poSyncStatusText = document.getElementById('poSyncStatusText');
+  const poSyncBtn = document.getElementById('poSyncBtn');
+
+  let poSb = null;
+  let poAllRows = [];       // canonical rows, mirrors the police_check_compliance table
+  let poCurrentFilter = 'all';
+  let poCurrentSearch = '';
+  let poLastVisible = [];
+
+  const PO_ICONS = {
+    spinner: '<span class="sync-spinner"></span>',
+    check: `<svg class="sync-check" viewBox="0 0 24 24" fill="none">
+      <circle class="ring" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+      <path class="mark" d="M7 12.5l3.5 3.5L9.5 8.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+    warn: `<svg class="sync-warn-icon" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.22"/>
+      <path d="M12 7.5v6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="12" cy="16.3" r="1.15" fill="currentColor"/>
+    </svg>`,
+    error: `<svg class="sync-error-icon" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.22"/>
+      <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>`
+  };
+
+  function setPoSyncStatus(state, text, showRetry){
+    poSyncStatus.classList.remove('syncing','success','warn','error');
+    poSyncStatus.classList.add('show', state);
+    poSyncStatusText.textContent = text;
+    poSyncStatusIcon.innerHTML = state === 'syncing' ? PO_ICONS.spinner
+      : state === 'success' ? PO_ICONS.check
+      : state === 'warn' ? PO_ICONS.warn
+      : PO_ICONS.error;
+    poSyncBtn.style.display = showRetry ? '' : 'none';
+  }
+  function hidePoSyncStatus(){
+    poSyncStatus.classList.remove('show','syncing','success','warn','error');
+  }
+
+  // ---------- Supabase: auto-connect + load whatever is already saved ----------
+  async function poAutoConnect(){
+    poConnDot.className = 'conn-dot connecting';
+    poConnLabel.textContent = 'Connecting to chandler-roster…';
+    try{
+      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const { error } = await client.from('police_check_compliance').select('id', { count:'exact', head:true });
+      if (error) throw error;
+      poSb = client;
+      poConnDot.className = 'conn-dot on';
+      poConnLabel.textContent = 'Connected to chandler-roster';
+      await poLoadFromDb();
+    }catch(err){
+      poSb = null;
+      poConnDot.className = 'conn-dot off';
+      poConnLabel.textContent = 'Connection failed — the police_check_compliance table may not exist yet, or check your connection';
+      console.error(err);
+    }
+  }
+  poAutoConnect();
+
+  async function poLoadFromDb(){
+    if (!poSb) return;
+    const { data, error } = await poSb.from('police_check_compliance').select('*').order('name', { ascending:true });
+    if (error){ console.error(error); return; }
+    poAllRows = (data || []).map(dbRowToLocalPo);
+    poRender();
+    if (poAllRows.length){
+      poResults.classList.remove('hidden');
+      poRightPlaceholder.classList.add('hidden');
+      poFooterNote.textContent = `${poAllRows.length} saved casual(s) loaded from the database.`;
+    }
+  }
+
+  function dbRowToLocalPo(row){
+    return {
+      employeeId: row.employee_id,
+      name: row.name || '',
+      receivedDate: row.received_date ? new Date(row.received_date + 'T00:00:00') : null,
+      officer: row.verification_officer || '',
+      remarks: row.remarks || '',
+      updatedAt: row.updated_at || null
+    };
+  }
+
+  // ---------- computed fields ----------
+  function poExpiredDate(receivedDate){
+    if (!receivedDate) return null;
+    return new Date(receivedDate.getFullYear() + 3, receivedDate.getMonth(), receivedDate.getDate());
+  }
+  function poDaysRemaining(expiredDate){
+    if (!expiredDate) return 0;
+    const today = new Date(); today.setHours(0,0,0,0);
+    return Math.max(Math.round((expiredDate - today) / 86400000), 0);
+  }
+  function poStatus(receivedDate, expiredDate){
+    if (!receivedDate) return 'notprovided';
+    const today = new Date(); today.setHours(0,0,0,0);
+    return expiredDate < today ? 'expired' : 'notexpired';
+  }
+  const PO_STATUS_LABEL = { notprovided:'POLICE CHECK NOT PROVIDED', expired:'EXPIRED', notexpired:'NOT EXPIRED' };
+
+  // ---------- file handling (add-only, or full import if a Received Date column is present) ----------
+  poDropzone.addEventListener('click', () => poFileInput.click());
+  poDropzone.addEventListener('dragover', e => { e.preventDefault(); poDropzone.classList.add('drag'); });
+  poDropzone.addEventListener('dragleave', () => poDropzone.classList.remove('drag'));
+  poDropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    poDropzone.classList.remove('drag');
+    if (e.dataTransfer.files.length) poHandleFile(e.dataTransfer.files[0]);
+  });
+  poFileInput.addEventListener('change', e => {
+    if (e.target.files.length) poHandleFile(e.target.files[0]);
+  });
+
+  function poHandleFile(file){
+    poFilenameArea.innerHTML = `<div class="filename-pill"><span class="dot"></span>${file.name}</div>`;
+    hidePoSyncStatus();
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type:'array', cellDates:true });
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
+        poProcessRows(rows, sheetName);
+      }catch(err){
+        poTableWrap.innerHTML = `<div class="empty-state">Couldn't parse this file. Make sure it's a valid .xlsx/.xls/.csv export.<br><span class="muted">${err.message}</span></div>`;
+        poResults.classList.remove('hidden');
+        poRightPlaceholder.classList.add('hidden');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  const PO_COLUMN_ALIASES = {
+    employeeId:   ['employee id', 'candidate id'],
+    name:         ['employee', 'candidate name'],
+    receivedDate: ['police check received date'],
+    officer:      ['verification officer'],
+    remarks:      ['remarks']
+  };
+
+  function poNormHeader(h){
+    return String(h || '').trim().toLowerCase().replace(/\s+/g,' ');
+  }
+  function poMapColumns(headerRow){
+    const norm = headerRow.map(poNormHeader);
+    const map = {};
+    for (const key in PO_COLUMN_ALIASES){
+      let idx = -1;
+      for (const alias of PO_COLUMN_ALIASES[key]){
+        idx = norm.indexOf(alias);
+        if (idx !== -1) break;
+      }
+      map[key] = idx;
+    }
+    return map;
+  }
+  function poVal(v){
+    if (v === null || v === undefined) return '';
+    if (v instanceof Date) return v;
+    return String(v).trim();
+  }
+  function poParseDate(v){
+    if (v === null || v === undefined || v === '') return null;
+    if (v instanceof Date) return v;
+    const s = String(v).trim();
+    if (!s || s.toUpperCase() === 'N/A') return null;
+    const d = new Date(s);
+    return isNaN(d) ? null : d;
+  }
+
+  function poProcessRows(rows, sheetName){
+    if (!rows.length){ poFooterNote.textContent = 'No data found in this file.'; return; }
+    const headerRow = rows[0];
+    const colMap = poMapColumns(headerRow);
+
+    if (colMap.employeeId === -1){
+      poTableWrap.innerHTML = `<div class="empty-state">Couldn't find an "Employee ID" / "Candidate ID" column in "${sheetName}".</div>`;
+      poResults.classList.remove('hidden');
+      poRightPlaceholder.classList.add('hidden');
+      return;
+    }
+
+    const isFullImport = colMap.receivedDate !== -1;
+
+    const parsed = [];
+    for (let i = 1; i < rows.length; i++){
+      const r = rows[i];
+      if (!r || r.every(c => c === null || c === '')) continue;
+      const get = (key) => colMap[key] !== undefined && colMap[key] !== -1 ? r[colMap[key]] : null;
+      const employeeId = String(poVal(get('employeeId'))).trim();
+      if (!employeeId) continue;
+      parsed.push({
+        employeeId,
+        name: String(poVal(get('name'))).trim(),
+        receivedDate: isFullImport ? poParseDate(get('receivedDate')) : null,
+        officer: colMap.officer !== -1 ? String(poVal(get('officer'))).trim() : '',
+        remarks: colMap.remarks !== -1 ? String(poVal(get('remarks'))).trim() : ''
+      });
+    }
+
+    if (isFullImport){
+      poFooterNote.textContent = `${parsed.length} casual(s) read from "${sheetName}" — importing full police check log.`;
+      poSyncFullImport(parsed);
+    } else {
+      poFooterNote.textContent = `${parsed.length} casual(s) read from "${sheetName}" — adding any not already on the list.`;
+      poSyncAddOnly(parsed);
+    }
+  }
+
+  // ---------- add-only sync: only inserts casuals not already present ----------
+  async function poSyncAddOnly(parsed){
+    const existingIds = new Set(poAllRows.map(r => r.employeeId));
+    const toAdd = parsed.filter(p => !existingIds.has(p.employeeId));
+
+    if (!poSb){
+      poAllRows = poAllRows.concat(toAdd.map(p => ({
+        employeeId: p.employeeId, name: p.name, receivedDate:null, officer:'', remarks:'', updatedAt:null
+      })));
+      poRender();
+      poResults.classList.remove('hidden');
+      poRightPlaceholder.classList.add('hidden');
+      setPoSyncStatus('warn', `Not synced — database isn\u2019t connected. Added ${toAdd.length} locally, ${parsed.length - toAdd.length} already on the list.`, false);
+      return;
+    }
+
+    poSyncBtn.disabled = true;
+    setPoSyncStatus('syncing', `Adding new casuals…`, false);
+    try{
+      if (toAdd.length){
+        const payload = toAdd.map(p => ({
+          employee_id: p.employeeId,
+          name: p.name || null,
+          updated_at: new Date().toISOString()
+        }));
+        const { error } = await poSb.from('police_check_compliance').upsert(payload, { onConflict:'employee_id' });
+        if (error) throw error;
+      }
+      await poLoadFromDb();
+      poResults.classList.remove('hidden');
+      poRightPlaceholder.classList.add('hidden');
+      setPoSyncStatus('success', `Added ${toAdd.length} new casual(s) — ${parsed.length - toAdd.length} were already on the list and left untouched.`, true);
+    }catch(err){
+      console.error(err);
+      setPoSyncStatus('error', 'Sync failed — ' + (err.message || 'unknown error'), true);
+    } finally {
+      poSyncBtn.disabled = false;
+    }
+  }
+
+  // ---------- full import: seeds/updates received date, officer, remarks from a log export ----------
+  async function poSyncFullImport(parsed){
+    if (!poSb){
+      const map = new Map(poAllRows.map(r => [r.employeeId, r]));
+      parsed.forEach(p => map.set(p.employeeId, { ...p, updatedAt:null }));
+      poAllRows = Array.from(map.values());
+      poRender();
+      poResults.classList.remove('hidden');
+      poRightPlaceholder.classList.add('hidden');
+      setPoSyncStatus('warn', 'Not synced — database isn\u2019t connected yet.', false);
+      return;
+    }
+
+    poSyncBtn.disabled = true;
+    setPoSyncStatus('syncing', `Importing ${parsed.length} casuals…`, false);
+    try{
+      const payload = parsed.map(p => ({
+        employee_id: p.employeeId,
+        name: p.name || null,
+        received_date: p.receivedDate ? p.receivedDate.toISOString().slice(0,10) : null,
+        verification_officer: p.officer || null,
+        remarks: p.remarks || null,
+        updated_at: new Date().toISOString()
+      }));
+      const { error } = await poSb.from('police_check_compliance').upsert(payload, { onConflict:'employee_id' });
+      if (error) throw error;
+      await poLoadFromDb();
+      poResults.classList.remove('hidden');
+      poRightPlaceholder.classList.add('hidden');
+      setPoSyncStatus('success', `Imported ${parsed.length} casual(s).`, true);
+    }catch(err){
+      console.error(err);
+      setPoSyncStatus('error', 'Import failed — ' + (err.message || 'unknown error'), true);
+    } finally {
+      poSyncBtn.disabled = false;
+    }
+  }
+
+  // ---------- manual inline edits ----------
+  poTableWrap.addEventListener('focusout', e => {
+    const t = e.target;
+    if (!t.classList || !t.classList.contains('po-field')) return;
+    const employeeId = t.dataset.employeeId;
+    const field = t.dataset.field;
+    const row = poAllRows.find(r => r.employeeId === employeeId);
+    if (!row) return;
+
+    let newValue;
+    if (field === 'receivedDate'){
+      newValue = t.value ? new Date(t.value + 'T00:00:00') : null;
+      const oldValue = row.receivedDate ? row.receivedDate.toISOString().slice(0,10) : '';
+      if ((t.value || '') === oldValue) return;
+    } else {
+      newValue = t.value.trim();
+      if (row[field] === newValue) return;
+    }
+
+    poSaveField(row, field, newValue, t);
+  });
+  poTableWrap.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('po-field')){
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+
+  async function poSaveField(row, field, newValue, inputEl){
+    row[field] = newValue;
+    const badge = inputEl.parentElement.querySelector('[data-badge]');
+    if (badge){
+      badge.className = 'cell-save-badge saving show';
+      badge.innerHTML = '<span class="mini-spinner"></span> Saving…';
+    }
+
+    poRefreshRow(row);
+
+    if (!poSb){
+      if (badge){ badge.className = 'cell-save-badge warn show'; badge.textContent = 'Saved locally — DB not connected'; }
+      return;
+    }
+    try{
+      const payload = {
+        employee_id: row.employeeId,
+        name: row.name || null,
+        received_date: row.receivedDate ? row.receivedDate.toISOString().slice(0,10) : null,
+        verification_officer: row.officer || null,
+        remarks: row.remarks || null,
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await poSb.from('police_check_compliance').upsert(payload, { onConflict:'employee_id' });
+      if (error) throw error;
+      if (badge){ badge.className = 'cell-save-badge success show'; badge.textContent = 'Saved'; }
+    }catch(err){
+      console.error(err);
+      if (badge){ badge.className = 'cell-save-badge error show'; badge.textContent = 'Save failed'; }
+    }
+  }
+
+  function poRefreshRow(row){
+    const tr = poTableWrap.querySelector(`tr[data-poid="${poCssEscapeAttr(row.employeeId)}"]`);
+    if (!tr) return;
+    const expiredDate = poExpiredDate(row.receivedDate);
+    const status = poStatus(row.receivedDate, expiredDate);
+    tr.className = poRowClass(status);
+    const expiredCell = tr.querySelector('[data-po-expired]');
+    if (expiredCell) expiredCell.textContent = expiredDate ? expiredDate.toLocaleDateString() : '—';
+    const daysCell = tr.querySelector('[data-po-days]');
+    if (daysCell) daysCell.textContent = expiredDate ? poDaysRemaining(expiredDate) : '—';
+    const statusCell = tr.querySelector('[data-po-status]');
+    if (statusCell) statusCell.innerHTML = `<span class="status-pill ${status}">${PO_STATUS_LABEL[status]}</span>`;
+  }
+
+  function poCssEscapeAttr(s){
+    return String(s).replace(/["\\]/g, '\\$&');
+  }
+  function poRowClass(status){
+    return status === 'expired' ? 'row-missing' : status === 'notprovided' ? 'row-equal' : 'row-short';
+  }
+
+  // ---------- rendering ----------
+  document.querySelectorAll('[data-pofilter]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-pofilter]').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      poCurrentFilter = chip.dataset.pofilter;
+      poRender();
+    });
+  });
+
+  poSearchBox.addEventListener('input', () => {
+    poCurrentSearch = poSearchBox.value.trim().toLowerCase();
+    poRender();
+  });
+
+  document.getElementById('poResetBtn').addEventListener('click', () => {
+    poFileInput.value = '';
+    poFilenameArea.innerHTML = '';
+    hidePoSyncStatus();
+    if (poSb) poLoadFromDb();
+  });
+
+  function poRender(){
+    const computed = poAllRows.map(r => {
+      const expiredDate = poExpiredDate(r.receivedDate);
+      return { r, expiredDate, status: poStatus(r.receivedDate, expiredDate) };
+    });
+
+    const total = computed.length;
+    const okCount = computed.filter(c => c.status === 'notexpired').length;
+    const expiredCount = computed.filter(c => c.status === 'expired').length;
+    const notProvidedCount = computed.filter(c => c.status === 'notprovided').length;
+
+    document.getElementById('poStatTotal').textContent = total;
+    document.getElementById('poStatOk').textContent = okCount;
+    document.getElementById('poStatExpired').textContent = expiredCount;
+    document.getElementById('poStatNotProvided').textContent = notProvidedCount;
+
+    let filtered = computed.filter(c => poCurrentFilter === 'all' ? true : c.status === poCurrentFilter);
+    if (poCurrentSearch){
+      filtered = filtered.filter(c =>
+        (c.r.name || '').toLowerCase().includes(poCurrentSearch) ||
+        (c.r.employeeId || '').toLowerCase().includes(poCurrentSearch)
+      );
+    }
+    poLastVisible = filtered.map(c => c.r);
+
+    if (!filtered.length){
+      poTableWrap.innerHTML = `<div class="empty-state">No casuals match this filter.</div>`;
+      return;
+    }
+
+    let html = `<table><thead><tr>
+      <th>Employee ID</th><th>Employee</th><th>Police Check Received Date</th>
+      <th>Police Expired Date (Automated)</th><th>Days Remaining</th><th>Status</th>
+      <th>Verification Officer</th><th>Remarks</th>
+    </tr></thead><tbody>`;
+
+    for (const { r, expiredDate, status } of filtered){
+      const dateInputVal = r.receivedDate ? r.receivedDate.toISOString().slice(0,10) : '';
+      html += `<tr class="${poRowClass(status)}" data-poid="${poEsc(r.employeeId)}">
+        <td class="mono">${poEsc(r.employeeId)}</td>
+        <td>${poEsc(r.name)}</td>
+        <td class="pc-editable">
+          <input type="date" class="pc-date-input po-field" data-employee-id="${poEsc(r.employeeId)}" data-field="receivedDate" value="${dateInputVal}">
+          <div class="cell-save-badge" data-badge></div>
+        </td>
+        <td class="pc-auto" data-po-expired>${expiredDate ? expiredDate.toLocaleDateString() : '—'}</td>
+        <td class="pc-auto" data-po-days>${expiredDate ? poDaysRemaining(expiredDate) : '—'}</td>
+        <td data-po-status><span class="status-pill ${status}">${PO_STATUS_LABEL[status]}</span></td>
+        <td class="pc-editable">
+          <input type="text" class="remarks-input po-field" data-employee-id="${poEsc(r.employeeId)}" data-field="officer" placeholder="Name…" value="${poEsc(r.officer)}">
+          <div class="cell-save-badge" data-badge></div>
+        </td>
+        <td class="pc-editable">
+          <input type="text" class="remarks-input po-field" data-employee-id="${poEsc(r.employeeId)}" data-field="remarks" placeholder="Add a note…" value="${poEsc(r.remarks)}">
+          <div class="cell-save-badge" data-badge></div>
+        </td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    poTableWrap.innerHTML = html;
+  }
+
+  function poEsc(v){
+    return String(v === null || v === undefined ? '' : v)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ---------- exports ----------
+  document.getElementById('poExportCsvBtn').addEventListener('click', poExportCsv);
+  document.getElementById('poExportColorBtn').addEventListener('click', poExportColored);
+
+  function poExportRows(){
+    const rows = poLastVisible.length ? poLastVisible : poAllRows;
+    return rows.map(r => {
+      const expiredDate = poExpiredDate(r.receivedDate);
+      const status = poStatus(r.receivedDate, expiredDate);
+      return {
+        employeeId: r.employeeId,
+        name: r.name,
+        received: r.receivedDate ? r.receivedDate.toLocaleDateString() : 'N/A',
+        expired: expiredDate ? expiredDate.toLocaleDateString() : '',
+        days: expiredDate ? poDaysRemaining(expiredDate) : 0,
+        status: PO_STATUS_LABEL[status],
+        statusKey: status,
+        officer: r.officer,
+        remarks: r.remarks
+      };
+    });
+  }
+
+  function poExportCsv(){
+    const rows = poExportRows();
+    if (!rows.length) return;
+    const headers = ['Employee ID','Employee','Police Check Received Date','Police Expired Date (Automated)','Days Remaining','Status','Verification Officer','Remarks'];
+    const csvRows = [headers];
+    for (const r of rows){
+      csvRows.push([r.employeeId, r.name, r.received, r.expired, r.days, r.status, r.officer, r.remarks]);
+    }
+    const csvContent = csvRows.map(row => row.map(poCsvEscape).join(',')).join('\r\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `police-check-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  function poCsvEscape(v){
+    const s = (v === null || v === undefined) ? '' : String(v);
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+
+  function poExportColored(){
+    const rows = poExportRows();
+    if (!rows.length) return;
+    const rowColor = (r) => r.statusKey === 'expired' ? '#F8C6C6' : r.statusKey === 'notprovided' ? '#F9EACB' : '#C3EAD0';
+    const headers = ['Employee ID','Employee','Police Check Received Date','Police Expired Date (Automated)','Days Remaining','Status','Verification Officer','Remarks'];
+    let body = '';
+    for (const r of rows){
+      const bg = rowColor(r);
+      const cells = [r.employeeId, r.name, r.received, r.expired, r.days, r.status, r.officer, r.remarks];
+      body += `<tr style="background:${bg};">` +
+        cells.map(v => `<td style="background:${bg};border:1px solid #ccc;padding:4px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${poEsc(v)}</td>`).join('') +
+        `</tr>`;
+    }
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>Police Check</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+<body><table>
+<tr>${headers.map(h => `<th style="background:#1F2E3F;color:#fff;border:1px solid #ccc;padding:5px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${poEsc(h)}</th>`).join('')}</tr>
+${body}
+</table></body></html>`;
+    const blob = new Blob([html], { type:'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `police-check-colored-${stamp}.xls`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
