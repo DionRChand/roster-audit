@@ -1031,6 +1031,11 @@
             </div>
           </div>
 
+          <div class="recent-changes hidden" id="poRecentAdditions">
+            <h4>New casuals added from the last upload</h4>
+            <div id="poRecentAdditionsList"></div>
+          </div>
+
           <div class="toolbar">
             <div class="filters">
               <div class="mchip active" data-pofilter="all">All</div>
@@ -3191,6 +3196,9 @@ ${body}
   const poSyncStatusText = document.getElementById('poSyncStatusText');
   const poSyncBtn = document.getElementById('poSyncBtn');
 
+  const poRecentAdditions = document.getElementById('poRecentAdditions');
+  const poRecentAdditionsList = document.getElementById('poRecentAdditionsList');
+
   let poSb = null;
   let poAllRows = [];       // canonical rows, mirrors the police_check_compliance table
   let poCurrentFilter = 'all';
@@ -3306,6 +3314,7 @@ ${body}
   function poHandleFile(file){
     poFilenameArea.innerHTML = `<div class="filename-pill"><span class="dot"></span>${file.name}</div>`;
     hidePoSyncStatus();
+    poRecentAdditions.classList.add('hidden');
     const reader = new FileReader();
     reader.onload = function(e){
       try{
@@ -3403,8 +3412,13 @@ ${body}
 
   // ---------- add-only sync: only inserts casuals not already present ----------
   async function poSyncAddOnly(parsed){
+    // the source report can have one row per pay period per person — collapse to one per employee ID
+    const dedupedMap = new Map();
+    parsed.forEach(p => { if (!dedupedMap.has(p.employeeId)) dedupedMap.set(p.employeeId, p); });
+    const deduped = Array.from(dedupedMap.values());
+
     const existingIds = new Set(poAllRows.map(r => r.employeeId));
-    const toAdd = parsed.filter(p => !existingIds.has(p.employeeId));
+    const toAdd = deduped.filter(p => !existingIds.has(p.employeeId));
 
     if (!poSb){
       poAllRows = poAllRows.concat(toAdd.map(p => ({
@@ -3413,7 +3427,8 @@ ${body}
       poRender();
       poResults.classList.remove('hidden');
       poRightPlaceholder.classList.add('hidden');
-      setPoSyncStatus('warn', `Not synced — database isn\u2019t connected. Added ${toAdd.length} locally, ${parsed.length - toAdd.length} already on the list.`, false);
+      poRenderRecentAdditions(toAdd);
+      setPoSyncStatus('warn', `Not synced — database isn\u2019t connected. Added ${toAdd.length} locally, ${deduped.length - toAdd.length} already on the list.`, false);
       return;
     }
 
@@ -3432,7 +3447,8 @@ ${body}
       await poLoadFromDb();
       poResults.classList.remove('hidden');
       poRightPlaceholder.classList.add('hidden');
-      setPoSyncStatus('success', `Added ${toAdd.length} new casual(s) — ${parsed.length - toAdd.length} were already on the list and left untouched.`, true);
+      poRenderRecentAdditions(toAdd);
+      setPoSyncStatus('success', `Added ${toAdd.length} new casual(s) — ${deduped.length - toAdd.length} were already on the list and left untouched.`, true);
     }catch(err){
       console.error(err);
       setPoSyncStatus('error', 'Sync failed — ' + (err.message || 'unknown error'), true);
@@ -3560,6 +3576,20 @@ ${body}
     return status === 'expired' ? 'row-missing' : status === 'notprovided' ? 'row-equal' : 'row-short';
   }
 
+  function poRenderRecentAdditions(toAdd){
+    if (!toAdd || !toAdd.length){
+      poRecentAdditions.classList.add('hidden');
+      return;
+    }
+    poRecentAdditionsList.innerHTML = toAdd.map(p => `
+      <div class="rc-row">
+        <span class="rc-name">${poEsc(p.name || '(no name)')} <span class="muted">(${poEsc(p.employeeId)})</span></span>
+        <span class="rc-detail"><span class="rc-new">New — added to the list</span></span>
+      </div>
+    `).join('');
+    poRecentAdditions.classList.remove('hidden');
+  }
+
   // ---------- rendering ----------
   document.querySelectorAll('[data-pofilter]').forEach(chip => {
     chip.addEventListener('click', () => {
@@ -3579,6 +3609,7 @@ ${body}
     poFileInput.value = '';
     poFilenameArea.innerHTML = '';
     hidePoSyncStatus();
+    poRecentAdditions.classList.add('hidden');
     if (poSb) poLoadFromDb();
   });
 
