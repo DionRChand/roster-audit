@@ -4327,7 +4327,7 @@ ${body}
     }
 
     let html = `<table><thead><tr>
-      <th>Employee ID</th><th>Employee</th><th>Position</th>
+      <th>Employee ID</th><th>Employee</th><th>Position</th><th>WE</th>
       <th>Cumulative Hours</th><th>Hours to 152</th><th>Status</th>
       <th>Weeks Tracked</th><th>Last WE Updated</th>
     </tr></thead><tbody>`;
@@ -4337,6 +4337,7 @@ ${body}
         <td class="mono">${glEsc(r.employeeId)}</td>
         <td>${glEsc(r.name)}</td>
         <td>${glEsc(r.position)}</td>
+        <td>${r.lastWeDate || '—'}</td>
         <td>${r.cumulativeHours.toFixed(2)}</td>
         <td>${glHoursToGo(r.cumulativeHours).toFixed(2)}</td>
         <td><span class="status-pill ${GL_STATUS_PILL_CLASS[status]}">${GL_STATUS_LABEL[status]}</span></td>
