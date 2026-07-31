@@ -1857,6 +1857,30 @@
 </script>
 <script>
 (function(){
+  // ---------- Per-panel loading overlay ----------
+  // Each tab-panel has a .panel-loading-overlay whose data-conn attribute lists the
+  // conn-dot id(s) (comma-separated) it should track. The overlay shows while any of
+  // those dots are in the "connecting" state, and hides once they resolve to on/off —
+  // giving clear feedback instead of a panel that just looks frozen while data loads.
+  document.querySelectorAll('.panel-loading-overlay').forEach(overlay => {
+    const dotIds = (overlay.dataset.conn || '').split(',').map(s => s.trim()).filter(Boolean);
+    const dots = dotIds.map(id => document.getElementById(id)).filter(Boolean);
+    if (!dots.length) return;
+
+    function sync(){
+      const stillConnecting = dots.some(d => d.classList.contains('connecting'));
+      overlay.classList.toggle('show', stillConnecting);
+    }
+
+    dots.forEach(dot => {
+      new MutationObserver(sync).observe(dot, { attributes: true, attributeFilter: ['class'] });
+    });
+    sync(); // reflect current state immediately in case a dot resolved before this ran
+  });
+})();
+</script>
+<script>
+(function(){
   // ---------- Driscolls Level Checks: entity sub-tab switching ----------
   const dlSubBtns = document.querySelectorAll('.dl-subtab-btn');
   const dlSubPanels = document.querySelectorAll('.dl-sub-panel');
@@ -1936,7 +1960,7 @@
 
   async function exAutoConnect(){
     try{
-      const client = window.supabase.createClient(EX_SUPABASE_URL, EX_SUPABASE_KEY);
+      const client = window.authClient;
       const { error } = await client.from('roster_shifts').select('id', { count:'exact', head:true });
       if (error) throw error;
       exSb = client;
@@ -1950,6 +1974,7 @@
     }
   }
   exAutoConnect();
+  window.exReconnect = exAutoConnect;
 
   // ---------- single-field calendar date-range picker (mirrors Roster Audit's) ----------
   const EX_DOW_LABELS = ['S','M','T','W','T','F','S'];
@@ -2382,6 +2407,12 @@
       loginScreen.classList.add('hidden');
       appShell.classList.remove('hidden');
     }, 220);
+    // Every panel's own auto-connect ran once already at page load, before login —
+    // at that point there was no session yet, so RLS-protected queries had nothing
+    // to authenticate with. Re-run them now that window.authClient actually has a
+    // signed-in session, so every tab's data loads for real instead of spinning forever.
+    ['rosterReconnect','exReconnect','msReconnect','daReconnect','poReconnect','glReconnect','dlReconnect','ncReconnect']
+      .forEach(fn => { if (typeof window[fn] === 'function') window[fn](); });
   }
 
   function showLogin(){
@@ -2884,7 +2915,7 @@
     connDot.className = 'conn-dot connecting';
     connLabel.textContent = 'Connecting to chandler-roster…';
     try{
-      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const client = window.authClient;
       // sanity check: a lightweight query that only succeeds if the table + policy exist
       const { error } = await client.from('roster_shifts').select('id', { count: 'exact', head: true });
       if (error) throw error;
@@ -2900,8 +2931,7 @@
     }
   }
   autoConnect();
-
-  // ---------- file handling ----------
+  window.rosterReconnect = autoConnect;
   dropzone.addEventListener('click', () => fileInput.click());
   dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
   dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
@@ -3632,7 +3662,7 @@ ${body}
     msConnDot.className = 'conn-dot connecting';
     msConnLabel.textContent = 'Connecting to chandler-roster…';
     try{
-      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const client = window.authClient;
       const { error } = await client.from('mission_compliance').select('id', { count:'exact', head:true });
       if (error) throw error;
       msSb = client;
@@ -3647,6 +3677,7 @@ ${body}
     }
   }
   msAutoConnect();
+  window.msReconnect = msAutoConnect;
 
   async function msLoadFromDb(){
     if (!msSb) return;
@@ -4189,7 +4220,7 @@ ${body}
     daConnDot.className = 'conn-dot connecting';
     daConnLabel.textContent = 'Connecting to chandler-roster…';
     try{
-      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const client = window.authClient;
       const { error } = await client.from('davies_compliance').select('id', { count:'exact', head:true });
       if (error) throw error;
       daSb = client;
@@ -4204,6 +4235,7 @@ ${body}
     }
   }
   daAutoConnect();
+  window.daReconnect = daAutoConnect;
 
   async function daLoadFromDb(){
     if (!daSb) return;
@@ -4667,7 +4699,7 @@ ${body}
     poConnDot.className = 'conn-dot connecting';
     poConnLabel.textContent = 'Connecting to chandler-roster…';
     try{
-      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const client = window.authClient;
       const { error } = await client.from('police_check_compliance').select('id', { count:'exact', head:true });
       if (error) throw error;
       poSb = client;
@@ -4682,6 +4714,7 @@ ${body}
     }
   }
   poAutoConnect();
+  window.poReconnect = poAutoConnect;
 
   async function poLoadFromDb(){
     if (!poSb) return;
@@ -5297,7 +5330,7 @@ ${body}
     glConnDot.className = 'conn-dot connecting';
     glConnLabel.textContent = 'Connecting to chandler-roster…';
     try{
-      const client = window.supabase.createClient(GL_SUPABASE_URL, GL_SUPABASE_KEY);
+      const client = window.authClient;
       const { error } = await client.from('goodman_level_checks').select('employee_id', { count:'exact', head:true });
       if (error) throw error;
       glSb = client;
@@ -5312,6 +5345,7 @@ ${body}
     }
   }
   glAutoConnect();
+  window.glReconnect = glAutoConnect;
 
   async function glLoadFromDb(){
     if (!glSb) return;
@@ -6031,7 +6065,7 @@ ${body}
       els.connDot.className = 'conn-dot connecting';
       els.connLabel.textContent = 'Connecting to chandler-roster…';
       try{
-        const client = window.supabase.createClient(DL_SUPABASE_URL, DL_SUPABASE_KEY);
+        const client = window.authClient;
         const { error } = await client.from(DL_TABLE).select('employee_id', { count:'exact', head:true }).eq('entity', cfg.entityValue);
         if (error) throw error;
         sb = client;
@@ -6442,9 +6476,10 @@ ${body}
     els.exportColorBtn.addEventListener('click', exportColored);
 
     autoConnect();
+    return { reconnect: autoConnect };
   }
 
-  dlCreateController({
+  const dlAuCtrl = dlCreateController({
     key: 'au',
     idPrefix: 'dlAu',
     entityValue: 'australia',
@@ -6456,7 +6491,7 @@ ${body}
     clientMatch: (client) => /driscolls/i.test(client) && !/tissue/i.test(client)
   });
 
-  dlCreateController({
+  const dlTcCtrl = dlCreateController({
     key: 'tc',
     idPrefix: 'dlTc',
     entityValue: 'tissue_culture',
@@ -6467,6 +6502,11 @@ ${body}
     filterAttr: 'dltcfilter',
     clientMatch: (client) => /driscolls/i.test(client) && /tissue/i.test(client)
   });
+
+  window.dlReconnect = function(){
+    dlAuCtrl.reconnect();
+    dlTcCtrl.reconnect();
+  };
 
   // ---------- New Client Analysis (Client + Position registry, job codes) ----------
   const NC_SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
@@ -6720,7 +6760,7 @@ ${body}
     ncConnDot.className = 'conn-dot connecting';
     ncConnLabel.textContent = 'Connecting to chandler-roster…';
     try{
-      const client = window.supabase.createClient(NC_SUPABASE_URL, NC_SUPABASE_KEY);
+      const client = window.authClient;
       const { error } = await client.from('client_position_registry').select('id', { count:'exact', head:true });
       if (error) throw error;
       ncSb = client;
@@ -6738,6 +6778,7 @@ ${body}
     }
   }
   ncAutoConnect();
+  window.ncReconnect = ncAutoConnect;
 
   async function ncSeedIfNeeded(){
     if (!ncSb) return;
