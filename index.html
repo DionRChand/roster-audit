@@ -481,6 +481,34 @@
   .login-footer a{ color:#5f6368; text-decoration:none; margin-left:20px; }
   .login-footer a:hover{ text-decoration:underline; }
 
+  .totp-input{
+    width:100%; padding:14px 15px; font-size:22px; letter-spacing:8px; text-align:center;
+    border:1px solid #dadce0; border-radius:5px; font-family:inherit; color:#202124;
+    background:#fff; transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  .totp-input:focus{
+    outline:none; border-color:#1a73e8; border-width:2px; padding:13px 14px;
+    box-shadow: 0 0 0 1px #1a73e8;
+  }
+  .login-field.error .totp-input{ border-color:#d93025; border-width:2px; padding:13px 14px; }
+  .totp-setup-toggle{
+    font-size:13px; color:#1a73e8; text-decoration:none; font-weight:600;
+    display:inline-block; margin-top:14px; cursor:pointer; user-select:none;
+  }
+  .totp-setup-toggle:hover{ text-decoration:underline; }
+  .totp-setup-panel{
+    display:none; margin-top:18px; padding:18px; border:1px solid #dadce0; border-radius:12px; background:#f8f9fa;
+  }
+  .totp-setup-panel.show{ display:block; }
+  .totp-setup-panel p{ margin:0 0 12px; font-size:13px; color:#3c4043; line-height:1.5; }
+  .totp-qr-row{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:10px; }
+  .totp-qr-row img{ border-radius:8px; border:1px solid #dadce0; width:150px; height:150px; }
+  .totp-secret-box{
+    font-family: ui-monospace, monospace; font-size:13px; letter-spacing:1px;
+    background:#fff; border:1px solid #dadce0; border-radius:6px; padding:8px 10px;
+    color:#202124; word-break:break-all; flex:1; min-width:160px;
+  }
+
   /* ---------- Mission Food Compliance tab ---------- */
   .mchip{
     border:1.5px solid var(--line); background:#fff; border-radius:20px;
@@ -724,6 +752,26 @@
           <a class="login-forgot" id="changeUserLink">Not admin? Go back</a>
           <div class="login-actions">
             <button type="submit" class="login-btn-primary" id="signInBtn">Sign in</button>
+          </div>
+        </div>
+
+        <div class="login-step" id="loginStepTotp">
+          <h1>2-Step Verification</h1>
+          <p class="login-sub">Enter the code from your authenticator app</p>
+          <div class="login-field" id="totpField">
+            <input type="text" class="totp-input" id="loginTotp" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+          </div>
+          <div class="login-error" id="totpError">That code didn't work. Try again.</div>
+          <a class="login-forgot" id="totpSetupToggle">Need to set up your authenticator app?</a>
+          <div class="totp-setup-panel" id="totpSetupPanel">
+            <p>Scan this QR code with Google Authenticator (or any TOTP app), or enter the key manually. You only need to do this once.</p>
+            <div class="totp-qr-row">
+              <img id="totpQrImg" alt="Authenticator QR code" width="150" height="150">
+              <div class="totp-secret-box" id="totpSecretText"></div>
+            </div>
+          </div>
+          <div class="login-actions">
+            <button type="button" class="login-btn-primary" id="totpVerifyBtn">Verify</button>
           </div>
         </div>
 
@@ -2202,21 +2250,86 @@
   const VALID_USER = 'admin';
   const VALID_PASS = 'MSChandler@!123';
 
+  // ---------- 2-Step Verification (TOTP, Google Authenticator compatible) ----------
+  const TOTP_SECRET = 'VOJRIGVSEOGXYWUI'; // base32 secret — scan once into an authenticator app
+  const TOTP_ISSUER = 'Compliance Hub';
+  const TOTP_ACCOUNT = 'admin';
+  const TOTP_STEP_SECONDS = 30;
+  const TOTP_DIGITS = 6;
+
+  function base32Decode(base32){
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    const clean = base32.replace(/=+$/,'').toUpperCase().replace(/[^A-Z2-7]/g,'');
+    let bits = '';
+    for (const ch of clean){
+      const idx = alphabet.indexOf(ch);
+      if (idx === -1) continue;
+      bits += idx.toString(2).padStart(5,'0');
+    }
+    const bytes = [];
+    for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2));
+    return new Uint8Array(bytes);
+  }
+
+  async function totpAt(secretBase32, counter){
+    const keyBytes = base32Decode(secretBase32);
+    const counterBuf = new ArrayBuffer(8);
+    const view = new DataView(counterBuf);
+    // JS numbers can't hold a full 64-bit counter, but at 30s steps this won't matter for centuries
+    view.setUint32(4, counter);
+    const cryptoKey = await crypto.subtle.importKey('raw', keyBytes, { name:'HMAC', hash:'SHA-1' }, false, ['sign']);
+    const sig = new Uint8Array(await crypto.subtle.sign('HMAC', cryptoKey, counterBuf));
+    const offset = sig[sig.length - 1] & 0x0f;
+    const binCode = ((sig[offset] & 0x7f) << 24) | ((sig[offset+1] & 0xff) << 16) | ((sig[offset+2] & 0xff) << 8) | (sig[offset+3] & 0xff);
+    const code = (binCode % (10 ** TOTP_DIGITS)).toString().padStart(TOTP_DIGITS, '0');
+    return code;
+  }
+
+  async function verifyTotp(inputCode){
+    const clean = inputCode.trim().replace(/\s+/g,'');
+    if (!/^\d{6}$/.test(clean)) return false;
+    const counter = Math.floor(Date.now() / 1000 / TOTP_STEP_SECONDS);
+    // allow ±1 step (30s) of clock drift between the device and the authenticator app
+    for (const delta of [0, -1, 1]){
+      const candidate = await totpAt(TOTP_SECRET, counter + delta);
+      if (candidate === clean) return true;
+    }
+    return false;
+  }
+
+  function buildOtpAuthUri(){
+    const label = encodeURIComponent(`${TOTP_ISSUER}:${TOTP_ACCOUNT}`);
+    const issuer = encodeURIComponent(TOTP_ISSUER);
+    return `otpauth://totp/${label}?secret=${TOTP_SECRET}&issuer=${issuer}&algorithm=SHA1&digits=${TOTP_DIGITS}&period=${TOTP_STEP_SECONDS}`;
+  }
+
   const loginScreen = document.getElementById('loginScreen');
   const appShell = document.getElementById('appShell');
   const stepUser = document.getElementById('loginStepUser');
   const stepPass = document.getElementById('loginStepPass');
+  const stepTotp = document.getElementById('loginStepTotp');
   const userField = document.getElementById('userField');
   const passField = document.getElementById('passField');
+  const totpField = document.getElementById('totpField');
   const loginUserInput = document.getElementById('loginUser');
   const loginPassInput = document.getElementById('loginPass');
+  const loginTotpInput = document.getElementById('loginTotp');
   const userError = document.getElementById('userError');
   const passError = document.getElementById('passError');
+  const totpError = document.getElementById('totpError');
   const userNext = document.getElementById('userNext');
   const changeUserLink = document.getElementById('changeUserLink');
   const loginForm = document.getElementById('loginForm');
   const userChipName = document.getElementById('userChipName');
   const userAvatar = document.getElementById('userAvatar');
+  const totpVerifyBtn = document.getElementById('totpVerifyBtn');
+  const totpSetupToggle = document.getElementById('totpSetupToggle');
+  const totpSetupPanel = document.getElementById('totpSetupPanel');
+  const totpQrImg = document.getElementById('totpQrImg');
+  const totpSecretText = document.getElementById('totpSecretText');
+
+  totpQrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(buildOtpAuthUri());
+  totpSecretText.textContent = TOTP_SECRET;
 
   function goToPasswordStep(){
     const typed = loginUserInput.value.trim();
@@ -2232,6 +2345,22 @@
     stepUser.classList.remove('active');
     stepPass.classList.add('active');
     setTimeout(() => loginPassInput.focus(), 50);
+  }
+
+  function goToTotpStep(){
+    stepPass.classList.remove('active');
+    stepTotp.classList.add('active');
+    loginTotpInput.value = '';
+    setTimeout(() => loginTotpInput.focus(), 50);
+  }
+
+  function revealApp(){
+    loginScreen.style.opacity = '0';
+    loginScreen.style.transition = 'opacity .25s ease';
+    setTimeout(() => {
+      loginScreen.classList.add('hidden');
+      appShell.classList.remove('hidden');
+    }, 220);
   }
 
   userNext.addEventListener('click', goToPasswordStep);
@@ -2252,7 +2381,8 @@
 
   loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (!stepPass.classList.contains('active')) { goToPasswordStep(); return; }
+    if (stepUser.classList.contains('active')) { goToPasswordStep(); return; }
+    if (!stepPass.classList.contains('active')) return; // TOTP step submits via its own button, not the form
     const pass = loginPassInput.value;
     if (pass !== VALID_PASS){
       passField.classList.add('error');
@@ -2261,12 +2391,7 @@
       loginPassInput.focus();
       return;
     }
-    loginScreen.style.opacity = '0';
-    loginScreen.style.transition = 'opacity .25s ease';
-    setTimeout(() => {
-      loginScreen.classList.add('hidden');
-      appShell.classList.remove('hidden');
-    }, 220);
+    goToTotpStep();
   });
 
   loginPassInput.addEventListener('input', () => {
@@ -2274,10 +2399,39 @@
     passError.classList.remove('show');
   });
 
+  totpSetupToggle.addEventListener('click', () => {
+    totpSetupPanel.classList.toggle('show');
+  });
+
+  async function submitTotp(){
+    const code = loginTotpInput.value;
+    totpVerifyBtn.disabled = true;
+    const ok = await verifyTotp(code);
+    totpVerifyBtn.disabled = false;
+    if (!ok){
+      totpField.classList.add('error');
+      totpError.classList.add('show');
+      loginTotpInput.value = '';
+      loginTotpInput.focus();
+      return;
+    }
+    totpField.classList.remove('error');
+    totpError.classList.remove('show');
+    revealApp();
+  }
+
+  totpVerifyBtn.addEventListener('click', submitTotp);
+  loginTotpInput.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); submitTotp(); } });
+  loginTotpInput.addEventListener('input', () => {
+    totpField.classList.remove('error');
+    totpError.classList.remove('show');
+  });
+
   setTimeout(() => loginUserInput.focus(), 50);
 })();
 </script>
 <script>
+
 (function(){
   const dropzone = document.getElementById('dropzone');
   const fileInput = document.getElementById('fileInput');
