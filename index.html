@@ -533,6 +533,43 @@
   .status-pill.notprovided{ background:#FBF1DF; color:#B57A15; }
   .status-pill.approved{ background:#CFF3F4; color:#0B7A80; }
 
+  tbody tr.row-inactive{ background:#F7F8F9; color:#8A94A0; }
+  tbody tr.row-inactive:hover{ background:#EEF0F2; }
+
+  .nc-action-cell{ display:flex; gap:6px; flex-wrap:wrap; }
+  .nc-small-btn{ padding:5px 10px; font-size:11.5px; font-weight:600; border-radius:7px; }
+
+  /* ---------- Client + Position registry: job-code modal ---------- */
+  .nc-modal-overlay{
+    position:fixed; inset:0; background:rgba(22,33,45,0.55);
+    display:flex; align-items:center; justify-content:center;
+    z-index:999; padding:20px;
+  }
+  .nc-modal-overlay.hidden{ display:none; }
+  .nc-modal-box{
+    background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+    width:100%; max-width:420px; padding:22px 24px 20px;
+  }
+  .nc-modal-box h3{ margin:0 0 4px; font-size:16px; color:var(--text); }
+  .nc-modal-box .nc-modal-sub{ margin:0 0 16px; font-size:12.5px; color:var(--text-soft); }
+  .nc-modal-badge{
+    display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px;
+    letter-spacing:.3px; text-transform:uppercase; margin-bottom:12px;
+    background:#FCEBEB; color:#C13D3D;
+  }
+  .nc-modal-badge.pos{ background:#FBF1DF; color:#B57A15; }
+  .nc-modal-field{ margin-bottom:6px; }
+  .nc-modal-field .nc-modal-label{ display:block; font-size:11px; font-weight:600; color:var(--text-soft); margin-bottom:3px; text-transform:uppercase; letter-spacing:.3px; }
+  .nc-modal-field .nc-modal-value{ font-size:14px; color:var(--text); margin-bottom:12px; font-weight:600; }
+  .nc-modal-box input[type="text"]{
+    width:100%; padding:9px 11px; border:1.5px solid var(--line); border-radius:8px;
+    font-size:14px; margin-top:2px; box-sizing:border-box;
+  }
+  .nc-modal-box input[type="text"]:focus{ outline:none; border-color:var(--teal); }
+  .nc-modal-actions{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:18px; }
+  .nc-modal-progress{ font-size:11.5px; color:var(--text-soft); }
+  .nc-modal-btns{ display:flex; gap:8px; }
+
   /* ---------- Goodman Level Checks: just-reached-152 banner ---------- */
   .gl-just-reached{
     background: var(--teal-soft);
@@ -1631,6 +1668,8 @@
               <div class="mchip active" data-ncfilter="all">All</div>
               <div class="mchip" data-ncfilter="missing">Missing job code</div>
               <div class="mchip" data-ncfilter="has-code">Has job code</div>
+              <div class="mchip" data-ncfilter="inactive">Inactive</div>
+              <div class="mchip" data-ncfilter="excluded">Excluded</div>
               <input type="text" class="search" id="ncSearchBox" placeholder="Search client or position…">
             </div>
             <div class="toolbar-right">
@@ -1651,6 +1690,33 @@
           </div>
 
           <div class="footer-note" id="ncFooterNote"></div>
+        </div>
+
+        <div id="ncJobCodeModal" class="nc-modal-overlay hidden">
+          <div class="nc-modal-box">
+            <span class="nc-modal-badge" id="ncModalBadge">New client</span>
+            <h3>Job code needed</h3>
+            <p class="nc-modal-sub">This combination hasn't been seen before. Give it a job code now, or skip and add it later from the list below.</p>
+            <div class="nc-modal-field">
+              <span class="nc-modal-label">Client</span>
+              <div class="nc-modal-value" id="ncModalClient"></div>
+            </div>
+            <div class="nc-modal-field">
+              <span class="nc-modal-label">Position</span>
+              <div class="nc-modal-value" id="ncModalPosition"></div>
+            </div>
+            <div class="nc-modal-field">
+              <span class="nc-modal-label">Job code</span>
+              <input type="text" id="ncModalInput" placeholder="Enter job code" autocomplete="off">
+            </div>
+            <div class="nc-modal-actions">
+              <span class="nc-modal-progress" id="ncModalProgress"></span>
+              <div class="nc-modal-btns">
+                <button type="button" class="btn ghost nc-small-btn" id="ncModalSkipBtn">Skip</button>
+                <button type="button" class="btn teal nc-small-btn" id="ncModalSaveBtn">Save</button>
+              </div>
+            </div>
+          </div>
         </div>
 
       </main>
@@ -6099,54 +6165,168 @@ ${body}
   const NC_SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
   const NC_SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
 
-  // Seeded from the "New Client and Position Tracker — Week-on-Week Comparison" workbook
-  // (the current-week columns of its most recent sheet). Job codes are left blank on
-  // seed and can be filled in via the registry table below — seeding never overwrites
-  // a job code that's already been entered.
+  // Seeded from every tab of the "New Client and Position Tracker — Week-on-Week Comparison"
+  // workbook (both the prior-week and current-week columns, across all sheets) — every
+  // Client + Position combination that has ever appeared is treated as already-known.
+  // Job codes are left blank on seed and can be filled in via the registry table below —
+  // seeding never overwrites a job code that's already been entered.
   const NC_SEED = [
+    { client:'7 CHEFS', position:'FORKLIFT DRIVER' },
+    { client:'ALFRED HEALTH', position:'STOREMEN' },
+    { client:'AUSFLORA', position:'FARM HAND' },
+    { client:'AUSNUTRIA  NUTRITION CARE PHARMACEUTICALS PTY LTD', position:'FORKLIFT DRIVER' },
+    { client:'AUSNUTRIA  NUTRITION CARE PHARMACEUTICALS PTY LTD', position:'PROCESS WORKER' },
+    { client:'AUSNUTRIA AUSTRALIA', position:'FORKLIFT DRIVER' },
+    { client:'AUSNUTRIA AUSTRALIA', position:'PROCESS WORKER' },
+    { client:'AUSTRALIAN DAIRY PARK PTY LTD', position:'FORKLIFT DRIVER' },
+    { client:'AUSTRALIAN TIMKEN PTY LTD', position:'ADMIN ASSISTANT NEW RATE' },
+    { client:'AUSTRALIAN TIMKEN PTY LTD', position:'ADMIN ASSISTANT NEW RATES - 2025' },
+    { client:'BALCO AUSTRALIA PTY LTD', position:'HAY PROCESSOR' },
     { client:'BALL AUSTRALIA PTY LTD', position:'NURSERY HANDS' },
+    { client:'BASFOODS AUSTRALIA PTY LTD', position:'DELIVERY DRIVER' },
+    { client:'BASFOODS INTERNATIONAL PTY LTD.', position:'DELIVERY DRIVER' },
+    { client:'BAYSIDE HEALTH', position:'STOREMEN' },
     { client:'BAYSIDE HEALTH', position:'STOREMEN FY2026 27' },
+    { client:'BAYSIDE HEALTH', position:'STOREMEN NEW RATES' },
+    { client:'BEARCAT TYRES PTY LTD', position:'FORKLIFT DRIVER' },
+    { client:'BIG BEN SPECIALTY FOODS', position:'PICKPACKER' },
+    { client:'Chill VIC Pty Ltd', position:'CONTAINER UNLOADER' },
+    { client:'CHILL VIC PTY LTD', position:'PICKPACKER' },
+    { client:'Class Plastics', position:'FITTER' },
+    { client:'Class Plastics', position:'PICKPACKER' },
+    { client:'COOLIBAH HERBS', position:'PICKPACKER' },
     { client:'CYGNETT PTY. LTD', position:'PICKPACKER' },
+    { client:'Del Bocia', position:'PROCESS WORKER' },
+    { client:'DENTAL HEALTH SERVICES VICTORIA', position:'STOREMEN' },
+    { client:'DORONY', position:'MACHINE OPERATOR' },
+    { client:'Driscolls Australia  Tissue Culture', position:'LEVEL 2 - SPECIAL RATE' },
     { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'FARM HAND' },
     { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'GRADE 1B' },
     { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'GRADE 2' },
+    { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'GRADE 4' },
     { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'IRRIGATION OPERATOR' },
+    { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'LABORATORY ASSISTANT' },
+    { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'LABORATORY ASSISTANT  -GRADE 1 B' },
+    { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'LEVEL 2 - SPECIAL RATE' },
+    { client:'Driscolls Australia Tissue Culture', position:'GRADE 2' },
     { client:'Driscolls Australia Tissue Culture', position:'LABORATORY ASSISTANT' },
-    { client:'Driscolls Australia Tissue Culture', position:'LABORATORY ASSISTANT -GRADE 1 B' },
+    { client:'Driscolls Australia Tissue Culture', position:'LABORATORY ASSISTANT  -GRADE 1 B' },
+    { client:'Driscolls Australia Tissue Culture', position:'PRODUCTION PLANNING ASSISTANT' },
     { client:'EFFICIENT LIGHTING SYSTEMS PTY. LTD', position:'PRODUCTION EMPLOYEE' },
+    { client:'EFFICIENT LIGHTING SYSTEMS PTY. LTD', position:'STOREMEN' },
     { client:'ENDEAVOUR FOUNDATION INDUSTRIES - OAKLEIGH (VIC)', position:'SUPPORT WORKER' },
     { client:'ENDEAVOUR FOUNDATION INDUSTRIES- KEW(VIC)', position:'PICKPACKER' },
     { client:'ENDEAVOUR FOUNDATION INDUSTRIES- MOUNT DRUITT (NSW)', position:'PICKPACKER' },
+    { client:'EPICO BAKERY PTY LTD', position:'PROCESS WORKER' },
+    { client:'FASTRAC FOODSERVICE', position:'MR DRIVER' },
+    { client:'FOOD FX AUSTRALIA PTY LTD', position:'FORKLIFT DRIVER' },
     { client:'FOOD FX AUSTRALIA PTY LTD', position:'PROCESS WORKER L2' },
+    { client:'Galintel Nepean Building and Infrastructure', position:'WAREHOUSE 21C' },
+    { client:'Goodman Fielder', position:'PROCESS WORKER' },
+    { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED  FOOTSCRAY', position:'CLEANER' },
     { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED  FOOTSCRAY', position:'FORKLIFT DRIVER' },
+    { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED  FOOTSCRAY', position:'PROCESS WORKER' },
     { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED  FOOTSCRAY', position:'PROCESS WORKER L1' },
     { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED  FOOTSCRAY', position:'PROCESS WORKER L2' },
     { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED CLAYTON', position:'PROCESS WORKER' },
     { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED CLAYTON', position:'PROCESS WORKER L3' },
+    { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED CLAYTON', position:'PROCESS WORKER L4' },
+    { client:'GRUMA OCEANIA PTY LTD', position:'CONTAINER UNLOADER' },
+    { client:'GRUMA OCEANIA PTY LTD', position:'FITTER' },
+    { client:'GRUMA OCEANIA PTY LTD', position:'FORKLIFT DRIVER' },
     { client:'GRUMA OCEANIA PTY LTD', position:'PROCESS WORKER L2' },
     { client:'GRUMA OCEANIA PTY LTD', position:'SANITATION' },
+    { client:'HADDENHAM HEALTHCARE LTD', position:'PICKPACKER' },
+    { client:'HARVEST BOX', position:'PROCESS WORKER' },
+    { client:'HARVEST BOX PTY LTD', position:'PROCESS WORKER' },
+    { client:'IG DESIGN GROUP AUSTRALIA PTY LIMITED', position:'CONTAINER UNLOADER' },
+    { client:'IG DESIGN GROUP AUSTRALIA PTY LIMITED', position:'FORKLIFT DRIVER' },
+    { client:'IG DESIGN GROUP AUSTRALIA PTY LIMITED', position:'MIGHT RECEIVE MANUAL SHEETS' },
+    { client:'IG DESIGN GROUP AUSTRALIA PTY LIMITED', position:'PICKPACKER' },
+    { client:'INTERCENTRAL LOGISTICS', position:'FORKLIFT DRIVER' },
+    { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'GENERAL LABOUR - SPECIAL RATE' },
     { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'GENERAL LABOUR LEVEL 3' },
+    { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'GENERAL LABOUR LEVEL 4' },
+    { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'GENERAL LABOUR LEVEL 5' },
     { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'GENERAL LABOUR LEVEL 6' },
+    { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'GENERAL LABOURER' },
+    { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'RECEPTIONIST/ADMIN' },
+    { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'RECEPTIONIST/ADMIN L2' },
     { client:'LANGTECH BOTTLING PTY LTD', position:'ADMINISTRATION OFFICER' },
     { client:'LANGTECH BOTTLING PTY LTD', position:'FORKLIFT DRIVER WITH EXPERIENCE' },
     { client:'LANGTECH BOTTLING PTY LTD', position:'PROCESS WORKER L2' },
     { client:'LANGTECH BOTTLING PTY LTD', position:'PROCESS WORKER L3' },
     { client:'LANGTECH BOTTLING PTY LTD', position:'PROCESS WORKER L4' },
+    { client:'LANGTECH BOTTLING PTY LTD', position:'QA' },
+    { client:'LANGTECH BOTTLING PTY LTD', position:'QUALITY CONTROLLER' },
     { client:'LEADER COMPUTERS - VIC', position:'FORKLIFT DRIVER' },
     { client:'LEADER COMPUTERS - VIC', position:'STOREMEN' },
+    { client:'MAKMUR ENTERPRISES PTY LTD', position:'MACHINE OPERATOR' },
+    { client:'MAKMUR ENTERPRISES PTY LTD', position:'PROCESS WORKER L2' },
+    { client:'MAKMUR ENTERPRISES PTY LTD', position:'PROCESS WORKER L3' },
+    { client:'MAKMUR ENTERPRISES PTY LTD', position:'PROCESS WORKER L3 – LEADING HAND' },
+    { client:'MANSFIELDS PROPAGATION NURSERY PL', position:'GRADE 1A' },
+    { client:'MAP ELECTRICS PTY. LTD.', position:'MECHANICAL LABOURER' },
+    { client:'MASSA IMPORTS VIC', position:'FORKLIFT DRIVER' },
+    { client:'MELBOURNE CHEF', position:'PROCESS WORKER' },
+    { client:'MIELE AUSTRALIA PTY. LIMITED', position:'FORKLIFT DRIVER' },
+    { client:'MONASH HEALTH - CLAYTON', position:'ADMIN ASSISTANT' },
+    { client:'MONASH HEALTH - CLAYTON', position:'FORKLIFT DRIVER' },
+    { client:'MONASH HEALTH - CLAYTON', position:'PICKPACKER' },
+    { client:'MONASH HEALTH - SCORESBY', position:'ACCOUNTS ASSISTANT' },
+    { client:'MONASH HEALTH - SCORESBY', position:'ADMIN ASSISTANT' },
+    { client:'MONASH HEALTH - SCORESBY', position:'FORKLIFT DRIVER' },
+    { client:'MONASH HEALTH - SCORESBY', position:'MR DRIVER' },
     { client:'MONASH HEALTH - SCORESBY', position:'PICKPACKER' },
+    { client:'MONASH HEALTH - SCORESBY', position:'SUPPLY CHAIN CONTRACTS AND PERFORMANCE MANAGER' },
+    { client:'MONASH HEALTH CLAYTON ENGINEERING', position:'ADMIN ASSISTANT' },
+    { client:'MONASH HEALTH SCORESBY - CUSTOMER SERVICE', position:'ACCOUNTS ASSISTANT' },
+    { client:'MONASH HEALTH SCORESBY - CUSTOMER SERVICE', position:'ADMIN ASSISTANT' },
+    { client:'MONASH HEALTH SCORESBY - CUSTOMER SERVICE', position:'SUPPLY CHAIN CONTRACTS AND PERFORMANCE MANAGER' },
+    { client:'MONASH HEALTH VICTORIA HEART', position:'FORKLIFT DRIVER' },
+    { client:'MONASH HEALTH VICTORIA HEART', position:'PICKPACKER' },
+    { client:'NIKPOL', position:'HR DRIVER' },
+    { client:'NOISETTE BAKERY', position:'PROCESS WORKER L1' },
+    { client:'NOISETTE BAKERY', position:'PROCESS WORKER L2' },
     { client:'NORTHERN HEALTH', position:'ACCOUNTS ASSISTANT' },
     { client:'NORTHERN HEALTH', position:'ADMIN ASSISTANT' },
+    { client:'NORTHERN HEALTH', position:'BUYER' },
+    { client:'NORTHERN HEALTH', position:'HANDY MAN' },
     { client:'NORTHERN HEALTH', position:'STOREMEN' },
     { client:'ONE STOP WAREHOUSE PTY LTD', position:'WAREHOUSE WORKER' },
     { client:'ORAL HEALTH VICTORIA', position:'STOREMEN' },
+    { client:'PAKVAL GROUP', position:'PICKPACKER' },
     { client:'PAKVAL OPERATIONS PTY LTD', position:'FORKLIFT DRIVER' },
+    { client:'PAKVAL OPERATIONS PTY LTD', position:'PICKPACKER' },
+    { client:'PETER SADLER REMOVALS AND LOGISTICS', position:'FORKLIFT DRIVER' },
+    { client:'PROVINCIAL HOME LIVING', position:'PICKPACKER' },
+    { client:'REGEN NURSERIES', position:'FARM HAND' },
+    { client:'REGEN NURSERIES PTY LTD', position:'FARM HAND' },
+    { client:'REGEN NURSERIES PTY LTD', position:'GRADE 1B' },
+    { client:'Ritter Australia PTY LTD', position:'ADMIN ASSISTANT' },
     { client:'ROYAL MELBOURNE HOSPITAL', position:'PICKPACKER' },
     { client:'ROYAL MELBOURNE HOSPITAL FACILITIES MANAGEMENT', position:'DELIVERY DRIVER' },
+    { client:'SCHIAVELLO MANUFACTURING PTY LTD', position:'SCHIAVELLO MANUFACTURING- PRODUCTION LEVEL 1' },
+    { client:'Southern States Group', position:'TRADE ASSISTANT' },
+    { client:'SPRAYING SYSTEMS', position:'WELDER' },
+    { client:'TAILORED BEVERAGE COMPANY PL', position:'FORKLIFT DRIVER' },
     { client:'TAILORED BEVERAGE COMPANY PL', position:'PICKPACKER' },
     { client:'TANNING ESSENTIALS PTY LTD', position:'PRODUCTION EMPLOYEE' },
     { client:'TAYLOR MADE GOLF AUSTRALIA PTY LTD', position:'CLUB BUILDERS' },
+    { client:'TAYLOR MADE GOLF AUSTRALIA PTY LTD', position:'CLUB FITTER - NEW RATES' },
+    { client:'TAYLOR MADE GOLF AUSTRALIA PTY LTD', position:'FORKLIFT DRIVER' },
     { client:'TAYLOR MADE GOLF AUSTRALIA PTY LTD', position:'WAREHOUSE STAFF' },
+    { client:'TAYLOR MADE GOLF AUSTRALIA PTY LTD NSW', position:'CLUB FITTER - NEW RATES' },
+    { client:'THE ORIGINAL JUICE CO', position:'PROCESS WORKER' },
+    { client:'THE ORIGINAL JUICE CO', position:'PROCESS WORKER L2' },
+    { client:'THE PRODUCT MAKERS AUSTRALIA PTY LIMITED', position:'PROCESS WORKER' },
+    { client:'TVH AUSTRALIA PTY LTD', position:'STOREMEN' },
+    { client:'VIGILANTISLIP', position:'TRADE ASSISTANT' },
+    { client:'WhiteRabbit INDUSTRIAL', position:'LO DRIVER' },
+    { client:'WONDER PIES', position:'CLEANER' },
+    { client:'WONDER PIES', position:'FOOD AND BEVERAGE ATTENDANT GRADE 3' },
+    { client:'WONDER PIES', position:'PACKING HANDS' },
+    { client:'WONDER PIES', position:'PROCESS WORKER' },
     { client:'WONDER PIES', position:'PRODUCTION EMPLOYEE' }
   ];
 
@@ -6174,6 +6354,14 @@ ${body}
   const ncAddPosition = document.getElementById('ncAddPosition');
   const ncAddJobCode = document.getElementById('ncAddJobCode');
   const ncAddBtn = document.getElementById('ncAddBtn');
+  const ncJobCodeModal = document.getElementById('ncJobCodeModal');
+  const ncModalBadge = document.getElementById('ncModalBadge');
+  const ncModalClient = document.getElementById('ncModalClient');
+  const ncModalPosition = document.getElementById('ncModalPosition');
+  const ncModalInput = document.getElementById('ncModalInput');
+  const ncModalProgress = document.getElementById('ncModalProgress');
+  const ncModalSkipBtn = document.getElementById('ncModalSkipBtn');
+  const ncModalSaveBtn = document.getElementById('ncModalSaveBtn');
 
   let ncSb = null;
   let ncRegistry = [];   // { id, client, position, jobCode, updatedAt } — mirrors client_position_registry
@@ -6248,7 +6436,7 @@ ${body}
     if (!ncSb) return;
     try{
       const payload = NC_SEED.map(s => ({
-        client: s.client, position: s.position, job_code: null, updated_at: new Date().toISOString()
+        client: s.client, position: s.position, job_code: null, status: 'active', updated_at: new Date().toISOString()
       }));
       const { error } = await ncSb.from('client_position_registry')
         .upsert(payload, { onConflict: 'client,position', ignoreDuplicates: true });
@@ -6261,7 +6449,7 @@ ${body}
     const { data, error } = await ncSb.from('client_position_registry').select('*').order('client', { ascending:true });
     if (error){ console.error(error); return; }
     ncRegistry = (data || []).map(r => ({
-      id: r.id, client: r.client, position: r.position, jobCode: r.job_code || '', updatedAt: r.updated_at || null
+      id: r.id, client: r.client, position: r.position, jobCode: r.job_code || '', status: r.status || 'active', updatedAt: r.updated_at || null
     }));
     ncResults.classList.remove('hidden');
     ncRightPlaceholder.classList.add('hidden');
@@ -6359,6 +6547,7 @@ ${body}
 
     ncFooterNote.textContent = `${comboMap.size} client/position combination(s) found in "${sheetName}". ${pending.length ? pending.length + ' need a job code before they settle.' : 'Everything already matches the registry.'}`;
     ncRender();
+    ncQueueModalPrompts(pending);
   }
 
   // ---------- render ----------
@@ -6433,8 +6622,10 @@ ${body}
 
   function ncRenderRegistry(){
     let rows = ncRegistry.filter(r => {
-      if (ncFilter === 'missing' && r.jobCode) return false;
-      if (ncFilter === 'has-code' && !r.jobCode) return false;
+      if (ncFilter === 'missing') return r.status === 'active' && !r.jobCode;
+      if (ncFilter === 'has-code') return r.status === 'active' && !!r.jobCode;
+      if (ncFilter === 'inactive') return r.status === 'inactive';
+      if (ncFilter === 'excluded') return r.status === 'excluded';
       return true;
     });
     if (ncSearch){
@@ -6448,14 +6639,24 @@ ${body}
     }
 
     let html = `<table><thead><tr>
-      <th>Client</th><th>Position</th><th>Job code</th><th>Status</th>
+      <th>Client</th><th>Position</th><th>Job code</th><th>Status</th><th>Actions</th>
     </tr></thead><tbody>`;
     for (const r of rows){
-      html += `<tr data-ncregid="${ncEsc(r.id)}">
+      const status = r.status || 'active';
+      const pillClass = status === 'excluded' ? 'excluded' : status === 'inactive' ? 'inactive' : (r.jobCode ? 'notexpired' : 'notprovided');
+      const pillLabel = status === 'excluded' ? 'Excluded' : status === 'inactive' ? 'Inactive' : (r.jobCode ? 'Has job code' : 'Missing job code');
+      const rowClass = status === 'excluded' ? 'row-excluded' : status === 'inactive' ? 'row-inactive' : '';
+      html += `<tr class="${rowClass}" data-ncregid="${ncEsc(r.id)}">
         <td>${ncEsc(r.client)}</td>
         <td>${ncEsc(r.position)}</td>
         <td><input type="text" class="dl-cell-input" data-ncregfield="jobCode" data-ncregid="${ncEsc(r.id)}" value="${ncEsc(r.jobCode)}" placeholder="Job code"></td>
-        <td><span class="status-pill ${r.jobCode ? 'notexpired' : 'inactive'}">${r.jobCode ? 'Has job code' : 'Missing job code'}</span></td>
+        <td><span class="status-pill ${pillClass}">${pillLabel}</span></td>
+        <td>
+          <div class="nc-action-cell">
+            <button type="button" class="btn ghost nc-small-btn" data-ncinactivetoggle="${ncEsc(r.id)}">${status === 'inactive' ? 'Reactivate' : 'Mark inactive'}</button>
+            <button type="button" class="btn ghost nc-small-btn" data-ncexcludetoggle="${ncEsc(r.id)}">${status === 'excluded' ? 'Restore' : 'Exclude'}</button>
+          </div>
+        </td>
       </tr>`;
     }
     html += `</tbody></table>`;
@@ -6481,6 +6682,38 @@ ${body}
         if (newTr) newTr.classList.add('row-corrected');
       });
     });
+    ncRegistryWrap.querySelectorAll('button[data-ncinactivetoggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.ncinactivetoggle;
+        const row = ncRegistry.find(r => String(r.id) === String(id));
+        if (!row) return;
+        ncSetRowStatus(id, row.status === 'inactive' ? 'active' : 'inactive');
+      });
+    });
+    ncRegistryWrap.querySelectorAll('button[data-ncexcludetoggle]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.ncexcludetoggle;
+        const row = ncRegistry.find(r => String(r.id) === String(id));
+        if (!row) return;
+        ncSetRowStatus(id, row.status === 'excluded' ? 'active' : 'excluded');
+      });
+    });
+  }
+
+  async function ncSetRowStatus(id, status){
+    const row = ncRegistry.find(r => String(r.id) === String(id));
+    if (!row) return;
+    row.status = status;
+    row.updatedAt = new Date().toISOString();
+    if (ncSb){
+      try{
+        const { error } = await ncSb.from('client_position_registry')
+          .update({ status, updated_at: row.updatedAt })
+          .eq('id', row.id);
+        if (error) throw error;
+      }catch(err){ console.error(err); }
+    }
+    ncRender();
   }
 
   // an unresolved item was just given a job code — upsert it into the registry
@@ -6489,7 +6722,7 @@ ${body}
     if (ncSb){
       try{
         const { error } = await ncSb.from('client_position_registry')
-          .upsert([{ client, position, job_code: jobCode, updated_at: now }], { onConflict: 'client,position' });
+          .upsert([{ client, position, job_code: jobCode, status: 'active', updated_at: now }], { onConflict: 'client,position' });
         if (error) throw error;
         await ncLoadRegistry();
         return;
@@ -6502,8 +6735,62 @@ ${body}
     const ck = ncNorm(client), pk = ncNorm(position);
     const existing = ncRegistry.find(r => ncNorm(r.client) === ck && ncNorm(r.position) === pk);
     if (existing){ existing.jobCode = jobCode; existing.updatedAt = now; }
-    else ncRegistry.push({ id: 'local-' + Date.now() + Math.random(), client, position, jobCode, updatedAt: now });
+    else ncRegistry.push({ id: 'local-' + Date.now() + Math.random(), client, position, jobCode, status:'active', updatedAt: now });
   }
+
+  // ---------- job-code prompt modal (fires for new clients/positions; the inline row+Save button in the pending table still works too) ----------
+  let ncModalQueue = [];
+  let ncModalTotal = 0;
+
+  function ncQueueModalPrompts(pendingList){
+    // Pop the modal for brand-new clients only; new positions on an already-known client
+    // still show up in the inline "Needs a Job Code" row/button below.
+    ncModalQueue = pendingList.filter(p => p.type === 'new-client');
+    ncModalTotal = ncModalQueue.length;
+    if (ncModalQueue.length) ncShowNextModal();
+  }
+
+  function ncShowNextModal(){
+    // Drop anything that was already resolved via the inline row while the modal was open (or before it opened).
+    ncModalQueue = ncModalQueue.filter(item => ncPending.some(p => ncKey(p.client, p.position) === ncKey(item.client, item.position)));
+    if (!ncModalQueue.length){
+      ncJobCodeModal.classList.add('hidden');
+      return;
+    }
+    const item = ncModalQueue[0];
+    const resolvedIndex = ncModalTotal - ncModalQueue.length + 1;
+    ncModalBadge.textContent = item.type === 'new-client' ? 'New client' : 'New position';
+    ncModalBadge.className = 'nc-modal-badge' + (item.type === 'new-client' ? '' : ' pos');
+    ncModalClient.textContent = item.client;
+    ncModalPosition.textContent = item.position;
+    ncModalInput.value = '';
+    ncModalProgress.textContent = ncModalTotal > 1 ? `${resolvedIndex} of ${ncModalTotal}` : '';
+    ncJobCodeModal.classList.remove('hidden');
+    setTimeout(() => ncModalInput.focus(), 30);
+  }
+
+  ncModalInput.addEventListener('keydown', e => { if (e.key === 'Enter') ncModalSaveBtn.click(); });
+
+  ncModalSaveBtn.addEventListener('click', async () => {
+    if (!ncModalQueue.length) return;
+    const item = ncModalQueue[0];
+    const jobCode = ncModalInput.value.trim();
+    if (!jobCode){ ncModalInput.focus(); return; }
+    ncModalSaveBtn.disabled = true;
+    await ncSaveEntry(item.client, item.position, jobCode);
+    ncPending = ncPending.filter(p => ncKey(p.client, p.position) !== ncKey(item.client, item.position));
+    ncModalQueue.shift();
+    ncRender();
+    ncModalSaveBtn.disabled = false;
+    ncShowNextModal();
+  });
+
+  ncModalSkipBtn.addEventListener('click', () => {
+    // Skipping just closes this card and moves to the next — the item stays in the
+    // pending list below so it can still be resolved from the inline row/button.
+    if (ncModalQueue.length) ncModalQueue.shift();
+    ncShowNextModal();
+  });
 
   // ---------- manual add ----------
   ncAddBtn.addEventListener('click', async () => {
