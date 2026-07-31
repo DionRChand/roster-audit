@@ -480,6 +480,23 @@
   .login-footer a{ color:#5f6368; text-decoration:none; margin-left:20px; }
   .login-footer a:hover{ text-decoration:underline; }
 
+  .login-otp-sub{ margin:0 0 28px; font-size:14px; color:#5f6368; text-align:center; line-height:1.5; }
+  .login-otp-sub b{ color:#202124; font-weight:600; }
+  .login-field input.otp-input{
+    letter-spacing:8px; font-size:20px; text-align:center; font-weight:600;
+  }
+  .login-resend{
+    font-size:13px; color:#1a73e8; text-decoration:none; font-weight:600;
+    cursor:pointer; background:none; border:none; font-family:inherit; padding:0;
+  }
+  .login-resend:hover{ text-decoration:underline; }
+  .login-resend:disabled{ color:#5f6368; cursor:not-allowed; text-decoration:none; }
+  .login-otp-sent{
+    display:none; align-items:center; gap:8px;
+    color:#1e8e3e; font-size:13px; margin:6px 2px 18px; font-weight:500;
+  }
+  .login-otp-sent.show{ display:flex; }
+
   /* ---------- Mission Food Compliance tab ---------- */
   .mchip{
     border:1.5px solid var(--line); background:#fff; border-radius:20px;
@@ -686,6 +703,21 @@
           <a class="login-forgot" id="changeUserLink">Not admin? Go back</a>
           <div class="login-actions">
             <button type="submit" class="login-btn-primary" id="signInBtn">Sign in</button>
+          </div>
+        </div>
+
+        <div class="login-step" id="loginStepOtp">
+          <h1>2-Step Verification</h1>
+          <p class="login-otp-sub">We've sent a 6-digit code to<br><b id="otpEmailLabel">dionr@chandlerpersonnel.com.au</b></p>
+          <div class="login-field" id="otpField">
+            <input type="text" id="loginOtp" class="otp-input" placeholder="000000" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code">
+          </div>
+          <div class="login-error" id="otpError">That code isn't right. Try again.</div>
+          <div class="login-otp-sent" id="otpSentMsg">New code sent.</div>
+          <button type="button" class="login-resend" id="resendOtpBtn">Resend code</button>
+          <a class="login-forgot" id="backToPassLink" style="display:block; margin-top:14px;">Go back</a>
+          <div class="login-actions">
+            <button type="submit" class="login-btn-primary" id="verifyOtpBtn">Verify</button>
           </div>
         </div>
 
@@ -2025,26 +2057,49 @@
 <script>
 (function(){
   // ---------- Login gate ----------
-  // Credentials are checked client-side only, and the signed-in state lives in a plain JS
-  // variable (not localStorage/sessionStorage), so it resets on every page reload.
+  // Step 1+2 (username/password) are still checked client-side, same as before.
+  // Step 3 is a real second factor: a 6-digit code emailed via Supabase Auth
+  // (auth.signInWithOtp / auth.verifyOtp) to a shared team inbox. Unlike the
+  // password step, this one can't be bypassed from dev tools or by hitting the
+  // Supabase API directly, because the tables' RLS policies require the
+  // authenticated session this step produces.
+  // The signed-in state itself still lives only in the DOM (no "remember me"),
+  // so the full 3-step login screen always shows again on page reload.
   const VALID_USER = 'admin';
   const VALID_PASS = 'MSChandler@!123';
+  const OTP_EMAIL = 'dionr@chandlerpersonnel.com.au';
+  const OTP_RESEND_COOLDOWN = 30; // seconds
+
+  const LG_SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
+  const LG_SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
+  const lgClient = window.supabase.createClient(LG_SUPABASE_URL, LG_SUPABASE_KEY);
 
   const loginScreen = document.getElementById('loginScreen');
   const appShell = document.getElementById('appShell');
   const stepUser = document.getElementById('loginStepUser');
   const stepPass = document.getElementById('loginStepPass');
+  const stepOtp = document.getElementById('loginStepOtp');
   const userField = document.getElementById('userField');
   const passField = document.getElementById('passField');
+  const otpField = document.getElementById('otpField');
   const loginUserInput = document.getElementById('loginUser');
   const loginPassInput = document.getElementById('loginPass');
+  const loginOtpInput = document.getElementById('loginOtp');
   const userError = document.getElementById('userError');
   const passError = document.getElementById('passError');
+  const otpError = document.getElementById('otpError');
+  const otpSentMsg = document.getElementById('otpSentMsg');
   const userNext = document.getElementById('userNext');
   const changeUserLink = document.getElementById('changeUserLink');
+  const backToPassLink = document.getElementById('backToPassLink');
+  const resendOtpBtn = document.getElementById('resendOtpBtn');
   const loginForm = document.getElementById('loginForm');
   const userChipName = document.getElementById('userChipName');
   const userAvatar = document.getElementById('userAvatar');
+  const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+  const otpEmailLabel = document.getElementById('otpEmailLabel');
+
+  otpEmailLabel.textContent = OTP_EMAIL;
 
   function goToPasswordStep(){
     const typed = loginUserInput.value.trim();
@@ -2078,28 +2133,117 @@
     setTimeout(() => loginUserInput.focus(), 50);
   });
 
-  loginForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (!stepPass.classList.contains('active')) { goToPasswordStep(); return; }
-    const pass = loginPassInput.value;
-    if (pass !== VALID_PASS){
-      passField.classList.add('error');
-      passError.classList.add('show');
-      loginPassInput.value = '';
-      loginPassInput.focus();
-      return;
-    }
-    loginScreen.style.opacity = '0';
-    loginScreen.style.transition = 'opacity .25s ease';
-    setTimeout(() => {
-      loginScreen.classList.add('hidden');
-      appShell.classList.remove('hidden');
-    }, 220);
+  backToPassLink.addEventListener('click', () => {
+    stepOtp.classList.remove('active');
+    stepPass.classList.add('active');
+    loginOtpInput.value = '';
+    otpField.classList.remove('error');
+    otpError.classList.remove('show');
+    setTimeout(() => loginPassInput.focus(), 50);
   });
 
   loginPassInput.addEventListener('input', () => {
     passField.classList.remove('error');
     passError.classList.remove('show');
+  });
+
+  loginOtpInput.addEventListener('input', () => {
+    otpField.classList.remove('error');
+    otpError.classList.remove('show');
+    loginOtpInput.value = loginOtpInput.value.replace(/\D/g, '').slice(0, 6);
+  });
+
+  let resendTimer = null;
+  function startResendCooldown(){
+    let secs = OTP_RESEND_COOLDOWN;
+    resendOtpBtn.disabled = true;
+    resendOtpBtn.textContent = `Resend code (${secs}s)`;
+    clearInterval(resendTimer);
+    resendTimer = setInterval(() => {
+      secs -= 1;
+      if (secs <= 0){
+        clearInterval(resendTimer);
+        resendOtpBtn.disabled = false;
+        resendOtpBtn.textContent = 'Resend code';
+      } else {
+        resendOtpBtn.textContent = `Resend code (${secs}s)`;
+      }
+    }, 1000);
+  }
+
+  async function sendOtp(){
+    verifyOtpBtn.disabled = true;
+    otpSentMsg.classList.remove('show');
+    otpField.classList.remove('error');
+    otpError.classList.remove('show');
+    const { error } = await lgClient.auth.signInWithOtp({
+      email: OTP_EMAIL,
+      options: { shouldCreateUser: true }
+    });
+    verifyOtpBtn.disabled = false;
+    if (error){
+      otpError.textContent = 'Could not send the code — check your connection and try again.';
+      otpField.classList.add('error');
+      otpError.classList.add('show');
+      console.error(error);
+      return;
+    }
+    otpSentMsg.classList.add('show');
+    startResendCooldown();
+  }
+
+  resendOtpBtn.addEventListener('click', () => { sendOtp(); });
+
+  loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    if (!stepPass.classList.contains('active') && !stepOtp.classList.contains('active')){
+      goToPasswordStep();
+      return;
+    }
+
+    if (stepPass.classList.contains('active')){
+      const pass = loginPassInput.value;
+      if (pass !== VALID_PASS){
+        passField.classList.add('error');
+        passError.classList.add('show');
+        loginPassInput.value = '';
+        loginPassInput.focus();
+        return;
+      }
+      stepPass.classList.remove('active');
+      stepOtp.classList.add('active');
+      setTimeout(() => loginOtpInput.focus(), 50);
+      await sendOtp();
+      return;
+    }
+
+    if (stepOtp.classList.contains('active')){
+      const code = loginOtpInput.value.trim();
+      if (code.length !== 6){
+        otpField.classList.add('error');
+        otpError.textContent = 'Enter the 6-digit code.';
+        otpError.classList.add('show');
+        return;
+      }
+      verifyOtpBtn.disabled = true;
+      const { error } = await lgClient.auth.verifyOtp({ email: OTP_EMAIL, token: code, type: 'email' });
+      verifyOtpBtn.disabled = false;
+      if (error){
+        otpField.classList.add('error');
+        otpError.textContent = "That code isn't right or has expired. Try again.";
+        otpError.classList.add('show');
+        loginOtpInput.value = '';
+        loginOtpInput.focus();
+        return;
+      }
+      loginScreen.style.opacity = '0';
+      loginScreen.style.transition = 'opacity .25s ease';
+      setTimeout(() => {
+        loginScreen.classList.add('hidden');
+        appShell.classList.remove('hidden');
+      }, 220);
+    }
   });
 
   setTimeout(() => loginUserInput.focus(), 50);
