@@ -42,22 +42,43 @@
   }
   .brand{ display:flex; align-items:center; gap:14px; }
   .brand-mark{
-    width:38px;height:38px;border-radius:9px;
-    background: linear-gradient(135deg, var(--teal), #0899a0);
+    width:40px;height:40px;border-radius:9px;
+    background: #fff;
     display:flex;align-items:center;justify-content:center;
-    font-weight:700;font-size:15px;letter-spacing:0.5px;
     box-shadow: 0 4px 10px -2px rgba(12,187,193,0.5);
+    overflow:hidden;
+    padding:3px;
+    flex-shrink:0;
+  }
+  .brand-mark img{
+    width:100%; height:100%; object-fit:contain; display:block;
+    border-radius:6px;
   }
   .brand-text h1{ margin:0; font-size:17px; font-weight:600; letter-spacing:0.1px; }
   .brand-text p{ margin:2px 0 0; font-size:12px; color:#B7C4D1; }
   .topbar .status{ font-size:12px; color:#9FB0BF; }
 
-  /* ---------- Chrome-style section tabs (sit below the topbar) ---------- */
+  /* ---------- Google-Chrome-style browser window chrome + tabs ---------- */
+  .browser-chrome{
+    background: var(--navy-deep);
+    padding: 8px 14px 0;
+  }
+  .browser-chrome .traffic-lights{
+    display:flex; align-items:center; gap:7px;
+    padding: 2px 8px 8px;
+  }
+  .browser-chrome .traffic-lights span{
+    width:11px; height:11px; border-radius:50%; display:inline-block;
+  }
+  .browser-chrome .traffic-lights span.tl-red{ background:#FF5F57; }
+  .browser-chrome .traffic-lights span.tl-yellow{ background:#FEBC2E; }
+  .browser-chrome .traffic-lights span.tl-green{ background:#28C840; }
+
   .tabbar{
     display:flex;
     align-items:flex-end;
-    gap:4px;
-    padding: 10px 28px 0;
+    gap:2px;
+    padding: 0 14px;
     background: var(--navy-deep);
     overflow-x:auto;
     -webkit-overflow-scrolling: touch;
@@ -67,25 +88,62 @@
     position:relative;
     display:inline-flex;
     align-items:center;
-    gap:7px;
-    padding: 11px 20px 10px;
-    font-size:13px;
+    gap:8px;
+    padding: 10px 16px 9px 12px;
+    font-size:12.5px;
     font-weight:600;
     font-family:inherit;
     color:#9FB0BF;
-    background: #263847;
+    background: #16212D;
     border:none;
-    border-radius: 10px 10px 0 0;
+    border-radius: 8px 8px 0 0;
     cursor:pointer;
     white-space:nowrap;
+    max-width:220px;
     transition: background .15s ease, color .15s ease;
   }
-  .tab-btn:hover{ background:#324B60; color:#fff; }
-  .tab-btn.active{ background: var(--paper); color: var(--navy-deep); }
+  .tab-btn::before, .tab-btn::after{
+    content:"";
+    position:absolute;
+    bottom:0;
+    width:8px; height:8px;
+    background:transparent;
+  }
+  .tab-btn::before{
+    left:-8px;
+    border-radius:0 0 8px 0;
+  }
+  .tab-btn::after{
+    right:-8px;
+    border-radius:0 0 0 8px;
+  }
+  .tab-btn.active::before{ box-shadow:4px 4px 0 4px var(--paper); }
+  .tab-btn.active::after{ box-shadow:-4px 4px 0 4px var(--paper); }
+  .tab-btn:hover{ background:#233241; color:#fff; }
+  .tab-btn.active{ background: var(--paper); color: var(--navy-deep); z-index:2; }
+  .tab-btn.active:hover{ background: var(--paper); }
   .tab-btn .tab-dot{
-    width:6px; height:6px; border-radius:50%; background:#5B7385; flex-shrink:0;
+    width:8px; height:8px; border-radius:50%; background:#5B7385; flex-shrink:0;
   }
   .tab-btn.active .tab-dot{ background: var(--teal); }
+  .tab-btn span.tab-label{
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .tab-btn .tab-close{
+    width:16px; height:16px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:12px; line-height:1; color:inherit; opacity:0;
+    transition: opacity .12s ease, background .12s ease;
+  }
+  .tab-btn:hover .tab-close, .tab-btn.active .tab-close{ opacity:.55; }
+  .tab-btn .tab-close:hover{ opacity:1 !important; background:rgba(0,0,0,0.08); }
+  .tabbar .new-tab-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:28px; height:28px; margin:0 0 6px 6px; flex-shrink:0;
+    border:none; border-radius:50%; background:transparent; color:#9FB0BF;
+    font-size:16px; cursor:default; transition: background .15s ease, color .15s ease;
+  }
+  .tabbar .new-tab-btn:hover{ background:#233241; color:#fff; }
   .tab-panel{ display:none; }
   .tab-panel.active{ display:block; position:relative; }
 
@@ -422,9 +480,12 @@
   }
   .login-topmark .mark{
     width:28px;height:28px;border-radius:7px;
-    background: linear-gradient(135deg, var(--teal), #0899a0);
+    background:#fff;
     display:flex;align-items:center;justify-content:center;
-    color:#fff;font-weight:700;font-size:12px;
+    overflow:hidden;
+  }
+  .login-topmark .mark img{
+    width:100%; height:100%; object-fit:contain; display:block; border-radius:5px;
   }
   .login-topmark span{ font-size:15px; color:#5f6368; font-weight:500; }
 
@@ -744,7 +805,7 @@
 
   <div class="login-screen" id="loginScreen">
     <div class="login-topmark">
-      <div class="mark">CP</div>
+      <div class="mark"><img src="https://i.ibb.co/d0vw0PT2/Chat-GPT-Image-Jul-31-2026-01-45-26-PM.png" alt="Chandler Personnel logo"></div>
       <span>Compliance Hub</span>
     </div>
 
@@ -820,7 +881,7 @@
 
   <div class="topbar">
     <div class="brand">
-      <div class="brand-mark">CP</div>
+      <div class="brand-mark"><img src="https://i.ibb.co/d0vw0PT2/Chat-GPT-Image-Jul-31-2026-01-45-26-PM.png" alt="Chandler Personnel logo"></div>
       <div class="brand-text">
         <h1>Compliance Hub</h1>
         <p>Workforce compliance tools · Chandler Personnel</p>
@@ -830,15 +891,19 @@
     <button type="button" id="signOutBtn" style="margin-left:12px;padding:8px 14px;border-radius:8px;border:1px solid #dadce0;background:#fff;color:#3c4043;font-size:13px;cursor:pointer;">Sign out</button>
   </div>
 
-  <div class="tabbar">
-    <button class="tab-btn active" data-tab="panel-roster" type="button"><span class="tab-dot"></span>Roster Audit</button>
-    <button class="tab-btn" data-tab="panel-extractor" type="button"><span class="tab-dot"></span>Extractor</button>
-    <button class="tab-btn" data-tab="panel-mission" type="button"><span class="tab-dot"></span>Mission Food Compliance</button>
-    <button class="tab-btn" data-tab="panel-davies" type="button"><span class="tab-dot"></span>Davies Food Compliance</button>
-    <button class="tab-btn" data-tab="panel-police" type="button"><span class="tab-dot"></span>Expired Police Check</button>
-    <button class="tab-btn" data-tab="panel-goodman" type="button"><span class="tab-dot"></span>Goodman Level Checks</button>
-    <button class="tab-btn" data-tab="panel-driscolls" type="button"><span class="tab-dot"></span>Driscolls Level Checks</button>
-    <button class="tab-btn" data-tab="panel-newclient" type="button"><span class="tab-dot"></span>New Client Analysis</button>
+  <div class="browser-chrome">
+    <div class="traffic-lights"><span class="tl-red"></span><span class="tl-yellow"></span><span class="tl-green"></span></div>
+    <div class="tabbar">
+      <button class="tab-btn active" data-tab="panel-roster" type="button"><span class="tab-dot"></span><span class="tab-label">Roster Audit</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn" data-tab="panel-extractor" type="button"><span class="tab-dot"></span><span class="tab-label">Extractor</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn" data-tab="panel-mission" type="button"><span class="tab-dot"></span><span class="tab-label">Mission Food Compliance</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn" data-tab="panel-davies" type="button"><span class="tab-dot"></span><span class="tab-label">Davies Food Compliance</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn" data-tab="panel-police" type="button"><span class="tab-dot"></span><span class="tab-label">Expired Police Check</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn" data-tab="panel-goodman" type="button"><span class="tab-dot"></span><span class="tab-label">Goodman Level Checks</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn" data-tab="panel-driscolls" type="button"><span class="tab-dot"></span><span class="tab-label">Driscolls Level Checks</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn" data-tab="panel-newclient" type="button"><span class="tab-dot"></span><span class="tab-label">New Client Analysis</span><span class="tab-close">✕</span></button>
+      <button class="new-tab-btn" type="button" title="New tab" tabindex="-1">+</button>
+    </div>
   </div>
 
   <div class="wrap tab-panel active" id="panel-roster">
