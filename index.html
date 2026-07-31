@@ -755,6 +755,34 @@
           </div>
         </div>
 
+        <div class="login-step" id="loginStepTotp">
+          <h1>2-Step Verification</h1>
+          <p class="login-sub">Enter the code from your authenticator app</p>
+          <div class="login-field" id="totpField">
+            <input type="text" class="totp-input" id="loginTotp" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+          </div>
+          <div class="login-error" id="totpError">That code didn't work. Try again.</div>
+          <div class="login-actions">
+            <button type="button" class="login-btn-primary" id="totpVerifyBtn">Verify</button>
+          </div>
+        </div>
+
+        <div class="login-step" id="loginStepTotpEnroll">
+          <h1>Set up 2-Step Verification</h1>
+          <p class="login-sub">Scan this with Google Authenticator (or any TOTP app), then enter the 6-digit code it shows. You only need to do this once.</p>
+          <div class="totp-qr-row">
+            <img id="totpQrImg" alt="Authenticator QR code" width="150" height="150">
+            <div class="totp-secret-box" id="totpSecretText"></div>
+          </div>
+          <div class="login-field" id="totpEnrollField">
+            <input type="text" class="totp-input" id="loginTotpEnroll" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code">
+          </div>
+          <div class="login-error" id="totpEnrollError">That code didn't work. Try again.</div>
+          <div class="login-actions">
+            <button type="button" class="login-btn-primary" id="totpEnrollVerifyBtn">Confirm & finish setup</button>
+          </div>
+        </div>
+
       </form>
     </div>
 
@@ -2225,8 +2253,10 @@
 </script>
 <script>
 (function(){
-  // ---------- Login gate (real Supabase Auth) ----------
-  // Email/password sign-in is verified by Supabase's Auth server, not client-side JS.
+  // ---------- Login gate (real Supabase Auth + real TOTP MFA) ----------
+  // Email/password is verified by Supabase's Auth server. The 2FA secret is generated
+  // and verified server-side by Supabase (auth.mfa API) — it never touches this page's
+  // source, unlike the earlier client-side-only version.
   // Access to data still depends on Row Level Security policies on your Supabase tables —
   // this only controls who can open the app UI.
   const SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
@@ -2238,12 +2268,20 @@
   const appShell = document.getElementById('appShell');
   const stepUser = document.getElementById('loginStepUser');
   const stepPass = document.getElementById('loginStepPass');
+  const stepTotp = document.getElementById('loginStepTotp');
+  const stepTotpEnroll = document.getElementById('loginStepTotpEnroll');
   const userField = document.getElementById('userField');
   const passField = document.getElementById('passField');
+  const totpField = document.getElementById('totpField');
+  const totpEnrollField = document.getElementById('totpEnrollField');
   const loginUserInput = document.getElementById('loginUser');
   const loginPassInput = document.getElementById('loginPass');
+  const loginTotpInput = document.getElementById('loginTotp');
+  const loginTotpEnrollInput = document.getElementById('loginTotpEnroll');
   const userError = document.getElementById('userError');
   const passError = document.getElementById('passError');
+  const totpError = document.getElementById('totpError');
+  const totpEnrollError = document.getElementById('totpEnrollError');
   const userNext = document.getElementById('userNext');
   const changeUserLink = document.getElementById('changeUserLink');
   const loginForm = document.getElementById('loginForm');
@@ -2251,8 +2289,19 @@
   const userAvatar = document.getElementById('userAvatar');
   const signInBtn = document.getElementById('signInBtn');
   const signOutBtn = document.getElementById('signOutBtn');
+  const totpVerifyBtn = document.getElementById('totpVerifyBtn');
+  const totpEnrollVerifyBtn = document.getElementById('totpEnrollVerifyBtn');
+  const totpQrImg = document.getElementById('totpQrImg');
+  const totpSecretText = document.getElementById('totpSecretText');
 
   function isValidEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
+
+  function hideAllSteps(){
+    stepUser.classList.remove('active');
+    stepPass.classList.remove('active');
+    stepTotp.classList.remove('active');
+    stepTotpEnroll.classList.remove('active');
+  }
 
   function goToPasswordStep(){
     const typed = loginUserInput.value.trim();
@@ -2265,7 +2314,7 @@
     userError.classList.remove('show');
     userChipName.textContent = typed;
     userAvatar.textContent = typed.charAt(0).toUpperCase();
-    stepUser.classList.remove('active');
+    hideAllSteps();
     stepPass.classList.add('active');
     setTimeout(() => loginPassInput.focus(), 50);
   }
@@ -2283,10 +2332,12 @@
     loginScreen.classList.remove('hidden');
     loginScreen.style.opacity = '1';
     appShell.classList.add('hidden');
-    stepPass.classList.remove('active');
+    hideAllSteps();
     stepUser.classList.add('active');
     loginUserInput.value = '';
     loginPassInput.value = '';
+    loginTotpInput.value = '';
+    loginTotpEnrollInput.value = '';
     setTimeout(() => loginUserInput.focus(), 50);
   }
 
@@ -2298,13 +2349,48 @@
   });
 
   changeUserLink.addEventListener('click', () => {
-    stepPass.classList.remove('active');
+    hideAllSteps();
     stepUser.classList.add('active');
     loginPassInput.value = '';
     passField.classList.remove('error');
     passError.classList.remove('show');
     setTimeout(() => loginUserInput.focus(), 50);
   });
+
+  // After password succeeds, figure out whether this account already has a
+  // verified TOTP factor (→ ask for a code) or needs to enroll one (→ show QR).
+  let pendingFactorId = null;   // factor being verified during sign-in
+  let pendingChallengeId = null;
+  let enrollFactorId = null;    // factor being created during first-time setup
+
+  async function goToMfaStep(){
+    const { data, error } = await authClient.auth.mfa.listFactors();
+    if (error){ console.error(error); return; }
+    const verifiedTotp = (data.totp || []).find(f => f.status === 'verified');
+
+    if (verifiedTotp){
+      // Existing factor — challenge it and ask for a code.
+      pendingFactorId = verifiedTotp.id;
+      const { data: challengeData, error: challengeErr } = await authClient.auth.mfa.challenge({ factorId: pendingFactorId });
+      if (challengeErr){ console.error(challengeErr); return; }
+      pendingChallengeId = challengeData.id;
+      hideAllSteps();
+      stepTotp.classList.add('active');
+      loginTotpInput.value = '';
+      setTimeout(() => loginTotpInput.focus(), 50);
+    } else {
+      // No factor yet — enroll a new one and show the QR code.
+      const { data: enrollData, error: enrollErr } = await authClient.auth.mfa.enroll({ factorType: 'totp' });
+      if (enrollErr){ console.error(enrollErr); return; }
+      enrollFactorId = enrollData.id;
+      totpQrImg.src = enrollData.totp.qr_code; // Supabase returns a data: URI SVG
+      totpSecretText.textContent = enrollData.totp.secret;
+      hideAllSteps();
+      stepTotpEnroll.classList.add('active');
+      loginTotpEnrollInput.value = '';
+      setTimeout(() => loginTotpEnrollInput.focus(), 50);
+    }
+  }
 
   async function submitLogin(){
     const email = loginUserInput.value.trim();
@@ -2322,13 +2408,13 @@
     }
     passField.classList.remove('error');
     passError.classList.remove('show');
-    revealApp();
+    goToMfaStep();
   }
 
   loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
     if (stepUser.classList.contains('active')) { goToPasswordStep(); return; }
-    if (!stepPass.classList.contains('active')) return;
+    if (!stepPass.classList.contains('active')) return; // TOTP steps submit via their own buttons
     submitLogin();
   });
 
@@ -2337,15 +2423,97 @@
     passError.classList.remove('show');
   });
 
+  // ---- Existing factor: verify a code ----
+  async function submitTotp(){
+    const code = loginTotpInput.value.trim();
+    if (!/^\d{6}$/.test(code)){
+      totpField.classList.add('error');
+      totpError.classList.add('show');
+      totpError.textContent = 'Enter the 6-digit code.';
+      return;
+    }
+    totpVerifyBtn.disabled = true;
+    const { error } = await authClient.auth.mfa.verify({
+      factorId: pendingFactorId,
+      challengeId: pendingChallengeId,
+      code
+    });
+    totpVerifyBtn.disabled = false;
+    if (error){
+      totpField.classList.add('error');
+      totpError.classList.add('show');
+      totpError.textContent = error.message || "That code didn't work. Try again.";
+      loginTotpInput.value = '';
+      loginTotpInput.focus();
+      return;
+    }
+    totpField.classList.remove('error');
+    totpError.classList.remove('show');
+    revealApp();
+  }
+  totpVerifyBtn.addEventListener('click', submitTotp);
+  loginTotpInput.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); submitTotp(); } });
+  loginTotpInput.addEventListener('input', () => {
+    totpField.classList.remove('error');
+    totpError.classList.remove('show');
+  });
+
+  // ---- First-time enrollment: confirm the code to activate the factor ----
+  async function submitTotpEnroll(){
+    const code = loginTotpEnrollInput.value.trim();
+    if (!/^\d{6}$/.test(code)){
+      totpEnrollField.classList.add('error');
+      totpEnrollError.classList.add('show');
+      totpEnrollError.textContent = 'Enter the 6-digit code.';
+      return;
+    }
+    totpEnrollVerifyBtn.disabled = true;
+    const { data: challengeData, error: challengeErr } = await authClient.auth.mfa.challenge({ factorId: enrollFactorId });
+    if (challengeErr){
+      totpEnrollVerifyBtn.disabled = false;
+      totpEnrollField.classList.add('error');
+      totpEnrollError.classList.add('show');
+      totpEnrollError.textContent = challengeErr.message || 'Something went wrong. Try again.';
+      return;
+    }
+    const { error: verifyErr } = await authClient.auth.mfa.verify({
+      factorId: enrollFactorId,
+      challengeId: challengeData.id,
+      code
+    });
+    totpEnrollVerifyBtn.disabled = false;
+    if (verifyErr){
+      totpEnrollField.classList.add('error');
+      totpEnrollError.classList.add('show');
+      totpEnrollError.textContent = verifyErr.message || "That code didn't work. Try again.";
+      loginTotpEnrollInput.value = '';
+      loginTotpEnrollInput.focus();
+      return;
+    }
+    totpEnrollField.classList.remove('error');
+    totpEnrollError.classList.remove('show');
+    revealApp();
+  }
+  totpEnrollVerifyBtn.addEventListener('click', submitTotpEnroll);
+  loginTotpEnrollInput.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); submitTotpEnroll(); } });
+  loginTotpEnrollInput.addEventListener('input', () => {
+    totpEnrollField.classList.remove('error');
+    totpEnrollError.classList.remove('show');
+  });
+
   signOutBtn.addEventListener('click', async () => {
     await authClient.auth.signOut();
     showLogin();
   });
 
-  // Restore an existing session on reload instead of forcing a fresh login every time.
-  authClient.auth.getSession().then(({ data }) => {
-    if (data && data.session){
+  // Restore an existing session on reload — but if it's only aal1 (password-only) and
+  // the account has a verified MFA factor, still require the TOTP step before entering.
+  authClient.auth.mfa.getAuthenticatorAssuranceLevel().then(({ data }) => {
+    if (data && data.currentLevel === 'aal2'){
       revealApp();
+    } else if (data && data.nextLevel === 'aal2' && data.currentLevel !== data.nextLevel){
+      // Signed in with password but MFA not yet completed this session.
+      goToMfaStep();
     } else {
       setTimeout(() => loginUserInput.focus(), 50);
     }
