@@ -2331,6 +2331,14 @@
   totpQrImg.src = 'https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=' + encodeURIComponent(buildOtpAuthUri());
   totpSecretText.textContent = TOTP_SECRET;
 
+  // Once the authenticator app has been set up successfully, don't show the
+  // QR/secret again on future visits — remembered via localStorage.
+  const TOTP_SETUP_DONE_KEY = 'totpSetupDone';
+  if (localStorage.getItem(TOTP_SETUP_DONE_KEY) === '1'){
+    totpSetupToggle.style.display = 'none';
+    totpSetupPanel.classList.remove('show');
+  }
+
   function goToPasswordStep(){
     const typed = loginUserInput.value.trim();
     if (typed.toLowerCase() !== VALID_USER){
@@ -2417,6 +2425,9 @@
     }
     totpField.classList.remove('error');
     totpError.classList.remove('show');
+    localStorage.setItem(TOTP_SETUP_DONE_KEY, '1');
+    totpSetupToggle.style.display = 'none';
+    totpSetupPanel.classList.remove('show');
     revealApp();
   }
 
