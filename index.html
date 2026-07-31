@@ -289,10 +289,11 @@
   .db-panel h3{ margin:0 0 3px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:8px; }
   .db-panel .sub{ margin:0 0 14px; font-size:12px; color: var(--text-soft); }
   .db-row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
-  .db-row input[type=date]{
+  .db-row input[type=date], .db-row input[type=text]{
     border:1.5px solid var(--line); border-radius:8px; padding:8px 11px; font-size:13px;
     background:#fff; color:var(--text); font-family:inherit;
   }
+  .db-row input[type=text]:focus{ outline:none; border-color: var(--teal); box-shadow:0 0 0 2px rgba(12,187,193,.18); }
 
   /* ---------- Single-field calendar date-range picker ---------- */
   .daterange-wrap{ position:relative; width:100%; }
@@ -719,6 +720,7 @@
     <button class="tab-btn" data-tab="panel-police" type="button"><span class="tab-dot"></span>Expired Police Check</button>
     <button class="tab-btn" data-tab="panel-goodman" type="button"><span class="tab-dot"></span>Goodman Level Checks</button>
     <button class="tab-btn" data-tab="panel-driscolls" type="button"><span class="tab-dot"></span>Driscolls Level Checks</button>
+    <button class="tab-btn" data-tab="panel-newclient" type="button"><span class="tab-dot"></span>New Client Analysis</button>
   </div>
 
   <div class="wrap tab-panel active" id="panel-roster">
@@ -1550,6 +1552,110 @@
 
   </div>
 
+  </div>
+
+  <div class="wrap tab-panel" id="panel-newclient">
+    <div class="layout">
+
+      <aside class="sidebar">
+        <div class="db-panel">
+          <h3><span class="conn-dot connecting" id="ncConnDot"></span> Database connection</h3>
+          <p class="sub" id="ncConnLabel">Connecting to chandler-roster…</p>
+        </div>
+
+        <div class="dropzone" id="ncDropzone">
+          <div class="dz-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3v12m0-12l-4 4m4-4l4 4M5 17v2a2 2 0 002 2h10a2 2 0 002-2v-2" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h2>Drop this week's roster report here</h2>
+          <p>or click to browse — accepts the Roster Schedule .xlsx export</p>
+          <input type="file" id="ncFileInput" accept=".xlsx,.xls,.csv">
+          <div id="ncFilenameArea"></div>
+        </div>
+
+        <div class="sync-status" id="ncSyncStatus">
+          <span id="ncSyncStatusIcon"></span>
+          <span id="ncSyncStatusText"></span>
+        </div>
+
+        <div class="db-panel">
+          <h3>How this works</h3>
+          <p class="sub" style="margin-bottom:0;">This keeps a running registry of every known <b>Client + Position</b> combination and its <b>Job Code</b>. Drop in the weekly Roster Schedule export and every Client/Position on it gets checked against the registry: an entirely new client, or an existing client rostered under a position it's never used before, gets flagged below and needs a Job Code before it settles. Once a Job Code is entered it's saved to the registry and won't be flagged again. The registry starts pre-loaded from the Week-on-Week Position Tracker.</p>
+        </div>
+      </aside>
+
+      <main class="main-col">
+
+        <div class="right-placeholder" id="ncRightPlaceholder">
+          <div class="rp-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3l7 3v5c0 4.6-3 8.4-7 9.6-4-1.2-7-5-7-9.6V6l7-3z" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9.5 12l1.8 1.8L14.5 10" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3>Loading registry…</h3>
+          <p>Drop this week's roster report on the left to check for new clients or positions, or wait a moment while the saved registry loads.</p>
+        </div>
+
+        <div id="ncResults" class="hidden">
+
+          <div class="summary" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="stat total">
+              <div class="num" id="ncStatRegistry">0</div>
+              <div class="label">Known combinations</div>
+            </div>
+            <div class="stat missing">
+              <div class="num" id="ncStatNewClient">0</div>
+              <div class="label">New clients this week</div>
+            </div>
+            <div class="stat equal">
+              <div class="num" id="ncStatNewPosition">0</div>
+              <div class="label">New positions this week</div>
+            </div>
+            <div class="stat clean">
+              <div class="num" id="ncStatMissingCode">0</div>
+              <div class="label">Registry missing job code</div>
+            </div>
+          </div>
+
+          <div id="ncPendingSection">
+            <h3 style="font-size:14.5px; margin:26px 0 10px;">Needs a Job Code before it settles</h3>
+            <div id="ncPendingWrap"></div>
+          </div>
+
+          <div class="toolbar" style="margin-top:30px;">
+            <h3 style="font-size:14.5px; margin:0 10px 0 0;">Client + Position Registry</h3>
+            <div class="filters">
+              <div class="mchip active" data-ncfilter="all">All</div>
+              <div class="mchip" data-ncfilter="missing">Missing job code</div>
+              <div class="mchip" data-ncfilter="has-code">Has job code</div>
+              <input type="text" class="search" id="ncSearchBox" placeholder="Search client or position…">
+            </div>
+            <div class="toolbar-right">
+              <button class="btn ghost" id="ncExportCsvBtn">Export CSV</button>
+            </div>
+          </div>
+
+          <div id="ncRegistryWrap"></div>
+
+          <div class="db-panel" style="margin-top:20px;">
+            <h3>Add a client + position manually</h3>
+            <div class="db-row" style="gap:8px; flex-wrap:wrap;">
+              <input type="text" id="ncAddClient" placeholder="Client name" style="flex:1 1 220px;">
+              <input type="text" id="ncAddPosition" placeholder="Position" style="flex:1 1 180px;">
+              <input type="text" id="ncAddJobCode" placeholder="Job code (optional)" style="flex:1 1 140px;">
+              <button class="btn teal" id="ncAddBtn" type="button">Add to registry</button>
+            </div>
+          </div>
+
+          <div class="footer-note" id="ncFooterNote"></div>
+        </div>
+
+      </main>
+
+    </div>
   </div>
 
 
@@ -5212,7 +5318,7 @@ ${body}
       html += `<tr class="${glRowClass(status)}" data-glid="${glEsc(r.employeeId)}">
         <td class="mono">${glEsc(r.employeeId)}</td>
         <td>${glEsc(r.name)}</td>
-        <td>${glEsc(r.position)}</td>
+        <td><input type="text" class="dl-cell-input" data-glfield="position" data-glid="${glEsc(r.employeeId)}" value="${glEsc(r.position)}"></td>
         <td>${r.lastWeDate || '—'}</td>
         <td>${r.cumulativeHours.toFixed(2)}</td>
         <td>${glHoursToGo(r.cumulativeHours).toFixed(2)}</td>
@@ -5223,6 +5329,40 @@ ${body}
     }
     html += `</tbody></table>`;
     glTableWrap.innerHTML = html;
+
+    glTableWrap.querySelectorAll('input[data-glfield]').forEach(input => {
+      input.addEventListener('change', async () => {
+        const employeeId = input.dataset.glid;
+        const field = input.dataset.glfield;
+        const value = input.value;
+        await glPersistOneField(employeeId, field, value);
+        glRender();
+        const newTr = glTableWrap.querySelector(`tr[data-glid="${CSS.escape(employeeId)}"]`);
+        if (newTr) newTr.classList.add('dl-saved-flash');
+      });
+    });
+  }
+
+  async function glPersistOneField(employeeId, field, value){
+    const row = glAllRows.find(r => r.employeeId === employeeId);
+    if (!row) return;
+    row[field] = value;
+    row.updatedAt = new Date().toISOString();
+    if (!glSb) return;
+    try{
+      const { error } = await glSb.from('goodman_level_checks').upsert([{
+        employee_id: row.employeeId,
+        employee_name: row.name || null,
+        position: row.position || null,
+        cumulative_hours: Number(row.cumulativeHours || 0),
+        weeks_tracked: row.weeksTracked || 0,
+        last_we_date: row.lastWeDate || null,
+        updated_at: row.updatedAt
+      }], { onConflict: 'employee_id' });
+      if (error) throw error;
+    }catch(err){
+      console.error(err);
+    }
   }
 
   function glEsc(v){
@@ -5953,6 +6093,472 @@ ${body}
     masterBlockIndex: 1,
     filterAttr: 'dltcfilter',
     clientMatch: (client) => /driscolls/i.test(client) && /tissue/i.test(client)
+  });
+
+  // ---------- New Client Analysis (Client + Position registry, job codes) ----------
+  const NC_SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
+  const NC_SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
+
+  // Seeded from the "New Client and Position Tracker — Week-on-Week Comparison" workbook
+  // (the current-week columns of its most recent sheet). Job codes are left blank on
+  // seed and can be filled in via the registry table below — seeding never overwrites
+  // a job code that's already been entered.
+  const NC_SEED = [
+    { client:'BALL AUSTRALIA PTY LTD', position:'NURSERY HANDS' },
+    { client:'BAYSIDE HEALTH', position:'STOREMEN FY2026 27' },
+    { client:'CYGNETT PTY. LTD', position:'PICKPACKER' },
+    { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'FARM HAND' },
+    { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'GRADE 1B' },
+    { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'GRADE 2' },
+    { client:'DRISCOLLS AUSTRALIA PTY LTD', position:'IRRIGATION OPERATOR' },
+    { client:'Driscolls Australia Tissue Culture', position:'LABORATORY ASSISTANT' },
+    { client:'Driscolls Australia Tissue Culture', position:'LABORATORY ASSISTANT -GRADE 1 B' },
+    { client:'EFFICIENT LIGHTING SYSTEMS PTY. LTD', position:'PRODUCTION EMPLOYEE' },
+    { client:'ENDEAVOUR FOUNDATION INDUSTRIES - OAKLEIGH (VIC)', position:'SUPPORT WORKER' },
+    { client:'ENDEAVOUR FOUNDATION INDUSTRIES- KEW(VIC)', position:'PICKPACKER' },
+    { client:'ENDEAVOUR FOUNDATION INDUSTRIES- MOUNT DRUITT (NSW)', position:'PICKPACKER' },
+    { client:'FOOD FX AUSTRALIA PTY LTD', position:'PROCESS WORKER L2' },
+    { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED  FOOTSCRAY', position:'FORKLIFT DRIVER' },
+    { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED  FOOTSCRAY', position:'PROCESS WORKER L1' },
+    { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED  FOOTSCRAY', position:'PROCESS WORKER L2' },
+    { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED CLAYTON', position:'PROCESS WORKER' },
+    { client:'GOODMAN FIELDER CONSUMER FOODS PTY LIMITED CLAYTON', position:'PROCESS WORKER L3' },
+    { client:'GRUMA OCEANIA PTY LTD', position:'PROCESS WORKER L2' },
+    { client:'GRUMA OCEANIA PTY LTD', position:'SANITATION' },
+    { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'GENERAL LABOUR LEVEL 3' },
+    { client:'JOHN KOHNKE PRODUCTS PTY LTD', position:'GENERAL LABOUR LEVEL 6' },
+    { client:'LANGTECH BOTTLING PTY LTD', position:'ADMINISTRATION OFFICER' },
+    { client:'LANGTECH BOTTLING PTY LTD', position:'FORKLIFT DRIVER WITH EXPERIENCE' },
+    { client:'LANGTECH BOTTLING PTY LTD', position:'PROCESS WORKER L2' },
+    { client:'LANGTECH BOTTLING PTY LTD', position:'PROCESS WORKER L3' },
+    { client:'LANGTECH BOTTLING PTY LTD', position:'PROCESS WORKER L4' },
+    { client:'LEADER COMPUTERS - VIC', position:'FORKLIFT DRIVER' },
+    { client:'LEADER COMPUTERS - VIC', position:'STOREMEN' },
+    { client:'MONASH HEALTH - SCORESBY', position:'PICKPACKER' },
+    { client:'NORTHERN HEALTH', position:'ACCOUNTS ASSISTANT' },
+    { client:'NORTHERN HEALTH', position:'ADMIN ASSISTANT' },
+    { client:'NORTHERN HEALTH', position:'STOREMEN' },
+    { client:'ONE STOP WAREHOUSE PTY LTD', position:'WAREHOUSE WORKER' },
+    { client:'ORAL HEALTH VICTORIA', position:'STOREMEN' },
+    { client:'PAKVAL OPERATIONS PTY LTD', position:'FORKLIFT DRIVER' },
+    { client:'ROYAL MELBOURNE HOSPITAL', position:'PICKPACKER' },
+    { client:'ROYAL MELBOURNE HOSPITAL FACILITIES MANAGEMENT', position:'DELIVERY DRIVER' },
+    { client:'TAILORED BEVERAGE COMPANY PL', position:'PICKPACKER' },
+    { client:'TANNING ESSENTIALS PTY LTD', position:'PRODUCTION EMPLOYEE' },
+    { client:'TAYLOR MADE GOLF AUSTRALIA PTY LTD', position:'CLUB BUILDERS' },
+    { client:'TAYLOR MADE GOLF AUSTRALIA PTY LTD', position:'WAREHOUSE STAFF' },
+    { client:'WONDER PIES', position:'PRODUCTION EMPLOYEE' }
+  ];
+
+  const ncConnDot = document.getElementById('ncConnDot');
+  const ncConnLabel = document.getElementById('ncConnLabel');
+  const ncDropzone = document.getElementById('ncDropzone');
+  const ncFileInput = document.getElementById('ncFileInput');
+  const ncFilenameArea = document.getElementById('ncFilenameArea');
+  const ncSyncStatus = document.getElementById('ncSyncStatus');
+  const ncSyncStatusIcon = document.getElementById('ncSyncStatusIcon');
+  const ncSyncStatusText = document.getElementById('ncSyncStatusText');
+  const ncRightPlaceholder = document.getElementById('ncRightPlaceholder');
+  const ncResults = document.getElementById('ncResults');
+  const ncStatRegistry = document.getElementById('ncStatRegistry');
+  const ncStatNewClient = document.getElementById('ncStatNewClient');
+  const ncStatNewPosition = document.getElementById('ncStatNewPosition');
+  const ncStatMissingCode = document.getElementById('ncStatMissingCode');
+  const ncPendingSection = document.getElementById('ncPendingSection');
+  const ncPendingWrap = document.getElementById('ncPendingWrap');
+  const ncRegistryWrap = document.getElementById('ncRegistryWrap');
+  const ncSearchBox = document.getElementById('ncSearchBox');
+  const ncExportCsvBtn = document.getElementById('ncExportCsvBtn');
+  const ncFooterNote = document.getElementById('ncFooterNote');
+  const ncAddClient = document.getElementById('ncAddClient');
+  const ncAddPosition = document.getElementById('ncAddPosition');
+  const ncAddJobCode = document.getElementById('ncAddJobCode');
+  const ncAddBtn = document.getElementById('ncAddBtn');
+
+  let ncSb = null;
+  let ncRegistry = [];   // { id, client, position, jobCode, updatedAt } — mirrors client_position_registry
+  let ncPending = [];    // { client, position, count, type: 'new-client'|'new-position' } from the last upload, unresolved
+  let ncHasUploaded = false;
+  let ncFilter = 'all';
+  let ncSearch = '';
+
+  const NC_ICONS = {
+    spinner: '<span class="sync-spinner"></span>',
+    check: `<svg class="sync-check" viewBox="0 0 24 24" fill="none">
+      <circle class="ring" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+      <path class="mark" d="M7 12.5l3.5 3.5L9.5 8.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`,
+    warn: `<svg class="sync-warn-icon" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.22"/>
+      <path d="M12 7.5v6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <circle cx="12" cy="16.3" r="1.15" fill="currentColor"/>
+    </svg>`,
+    error: `<svg class="sync-error-icon" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.22"/>
+      <path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>`
+  };
+  function setNcStatus(state, text){
+    ncSyncStatus.classList.remove('syncing','success','warn','error');
+    ncSyncStatus.classList.add('show', state);
+    ncSyncStatusText.textContent = text;
+    ncSyncStatusIcon.innerHTML = state === 'syncing' ? NC_ICONS.spinner
+      : state === 'success' ? NC_ICONS.check
+      : state === 'warn' ? NC_ICONS.warn
+      : NC_ICONS.error;
+  }
+  function hideNcStatus(){
+    ncSyncStatus.classList.remove('show','syncing','success','warn','error');
+  }
+
+  function ncNorm(v){
+    return String(v === null || v === undefined ? '' : v).trim().toUpperCase().replace(/\s+/g,' ');
+  }
+  function ncEsc(v){
+    return String(v === null || v === undefined ? '' : v)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function ncKey(client, position){ return ncNorm(client) + '|' + ncNorm(position); }
+
+  // ---------- Supabase: auto-connect, seed the registry once, then load it ----------
+  async function ncAutoConnect(){
+    ncConnDot.className = 'conn-dot connecting';
+    ncConnLabel.textContent = 'Connecting to chandler-roster…';
+    try{
+      const client = window.supabase.createClient(NC_SUPABASE_URL, NC_SUPABASE_KEY);
+      const { error } = await client.from('client_position_registry').select('id', { count:'exact', head:true });
+      if (error) throw error;
+      ncSb = client;
+      ncConnDot.className = 'conn-dot on';
+      ncConnLabel.textContent = 'Connected to chandler-roster';
+      await ncSeedIfNeeded();
+      await ncLoadRegistry();
+    }catch(err){
+      ncSb = null;
+      ncConnDot.className = 'conn-dot off';
+      ncConnLabel.textContent = 'Connection failed — the client_position_registry table may not exist yet, or check your connection';
+      console.error(err);
+      ncRightPlaceholder.querySelector('h3').textContent = "Couldn't load the registry";
+      ncRightPlaceholder.querySelector('p').textContent = 'The database isn\u2019t connected, so nothing is saved yet. You can still drop a roster report below to preview this week\u2019s new clients and positions.';
+    }
+  }
+  ncAutoConnect();
+
+  async function ncSeedIfNeeded(){
+    if (!ncSb) return;
+    try{
+      const payload = NC_SEED.map(s => ({
+        client: s.client, position: s.position, job_code: null, updated_at: new Date().toISOString()
+      }));
+      const { error } = await ncSb.from('client_position_registry')
+        .upsert(payload, { onConflict: 'client,position', ignoreDuplicates: true });
+      if (error) console.error(error);
+    }catch(err){ console.error(err); }
+  }
+
+  async function ncLoadRegistry(){
+    if (!ncSb) return;
+    const { data, error } = await ncSb.from('client_position_registry').select('*').order('client', { ascending:true });
+    if (error){ console.error(error); return; }
+    ncRegistry = (data || []).map(r => ({
+      id: r.id, client: r.client, position: r.position, jobCode: r.job_code || '', updatedAt: r.updated_at || null
+    }));
+    ncResults.classList.remove('hidden');
+    ncRightPlaceholder.classList.add('hidden');
+    ncRender();
+  }
+
+  // ---------- file handling: parse the Roster Schedule export ----------
+  ncDropzone.addEventListener('click', () => ncFileInput.click());
+  ncDropzone.addEventListener('dragover', e => { e.preventDefault(); ncDropzone.classList.add('drag'); });
+  ncDropzone.addEventListener('dragleave', () => ncDropzone.classList.remove('drag'));
+  ncDropzone.addEventListener('drop', e => {
+    e.preventDefault();
+    ncDropzone.classList.remove('drag');
+    if (e.dataTransfer.files.length) ncHandleFile(e.dataTransfer.files[0]);
+  });
+  ncFileInput.addEventListener('change', e => {
+    if (e.target.files.length) ncHandleFile(e.target.files[0]);
+  });
+
+  function ncHandleFile(file){
+    ncFilenameArea.innerHTML = `<div class="filename-pill"><span class="dot"></span>${file.name}</div>`;
+    hideNcStatus();
+    const reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type:'array', cellDates:true });
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:null, raw:true });
+        ncProcessRoster(rows, sheetName);
+      }catch(err){
+        ncResults.classList.remove('hidden');
+        ncRightPlaceholder.classList.add('hidden');
+        ncPendingWrap.innerHTML = `<div class="empty-state">Couldn't parse this file. Make sure it's a valid Roster Schedule .xlsx export.<br><span class="muted">${ncEsc(err.message)}</span></div>`;
+        ncPendingSection.classList.remove('hidden');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function ncFindHeader(headers, name){
+    const norm = h => String(h || '').trim().toLowerCase();
+    return headers.findIndex(h => norm(h) === name.toLowerCase());
+  }
+
+  function ncProcessRoster(rows, sheetName){
+    ncResults.classList.remove('hidden');
+    ncRightPlaceholder.classList.add('hidden');
+    ncHasUploaded = true;
+
+    if (!rows.length){
+      ncPendingWrap.innerHTML = `<div class="empty-state">No data found in "${ncEsc(sheetName)}".</div>`;
+      ncPendingSection.classList.remove('hidden');
+      return;
+    }
+    const headers = rows[0];
+    const ci = ncFindHeader(headers, 'CLIENT');
+    const pi = ncFindHeader(headers, 'POSITION');
+    if (ci === -1 || pi === -1){
+      ncPendingWrap.innerHTML = `<div class="empty-state">Couldn't find the CLIENT or POSITION columns in "${ncEsc(sheetName)}". Check the headers match the Roster Schedule export format.</div>`;
+      ncPendingSection.classList.remove('hidden');
+      return;
+    }
+
+    const comboMap = new Map();
+    for (let i = 1; i < rows.length; i++){
+      const r = rows[i];
+      if (!r) continue;
+      const client = String(r[ci] || '').trim();
+      const position = String(r[pi] || '').trim();
+      if (!client || !position) continue;
+      const key = ncKey(client, position);
+      if (!comboMap.has(key)) comboMap.set(key, { client, position, count: 0 });
+      comboMap.get(key).count++;
+    }
+
+    if (!comboMap.size){
+      ncPendingWrap.innerHTML = `<div class="empty-state">No Client/Position rows found in "${ncEsc(sheetName)}".</div>`;
+      ncPendingSection.classList.remove('hidden');
+      ncFooterNote.textContent = '';
+      return;
+    }
+
+    const pending = [];
+    for (const combo of comboMap.values()){
+      const ck = ncNorm(combo.client), pk = ncNorm(combo.position);
+      const exact = ncRegistry.some(r => ncNorm(r.client) === ck && ncNorm(r.position) === pk);
+      if (exact) continue;
+      const clientKnown = ncRegistry.some(r => ncNorm(r.client) === ck);
+      pending.push({ client: combo.client, position: combo.position, count: combo.count, type: clientKnown ? 'new-position' : 'new-client', jobCode:'' });
+    }
+    pending.sort((a,b) => a.client.localeCompare(b.client) || a.position.localeCompare(b.position));
+    ncPending = pending;
+
+    ncFooterNote.textContent = `${comboMap.size} client/position combination(s) found in "${sheetName}". ${pending.length ? pending.length + ' need a job code before they settle.' : 'Everything already matches the registry.'}`;
+    ncRender();
+  }
+
+  // ---------- render ----------
+  function ncRender(){
+    ncStatRegistry.textContent = ncRegistry.length;
+    ncStatNewClient.textContent = ncPending.filter(p => p.type === 'new-client').length;
+    ncStatNewPosition.textContent = ncPending.filter(p => p.type === 'new-position').length;
+    ncStatMissingCode.textContent = ncRegistry.filter(r => !r.jobCode).length;
+
+    ncRenderPending();
+    ncRenderRegistry();
+  }
+
+  function ncRenderPending(){
+    if (!ncHasUploaded){
+      ncPendingSection.classList.add('hidden');
+      return;
+    }
+    ncPendingSection.classList.remove('hidden');
+
+    if (!ncPending.length){
+      ncPendingWrap.innerHTML = `<div class="empty-state">Nothing new this week — every client/position on the last upload already matches the registry.</div>`;
+      return;
+    }
+
+    let html = `<table><thead><tr>
+      <th>Client</th><th>Position</th><th>Type</th><th>Rows this week</th><th>Job code</th>
+    </tr></thead><tbody>`;
+    for (const p of ncPending){
+      const key = ncKey(p.client, p.position);
+      const rowClass = p.type === 'new-client' ? 'row-missing' : 'row-equal';
+      const badgeClass = p.type === 'new-client' ? 'expired' : 'notprovided';
+      const badgeLabel = p.type === 'new-client' ? 'New client' : 'New position';
+      html += `<tr class="${rowClass}" data-ncpendingkey="${ncEsc(key)}">
+        <td>${ncEsc(p.client)}</td>
+        <td>${ncEsc(p.position)}</td>
+        <td><span class="status-pill ${badgeClass}">${badgeLabel}</span></td>
+        <td>${p.count}</td>
+        <td>
+          <div class="dl-position-cell">
+            <input type="text" class="dl-cell-input" data-ncpendinginput="${ncEsc(key)}" placeholder="Job code" value="${ncEsc(p.jobCode)}">
+            <button type="button" class="dl-apply-btn" data-ncpendingsave="${ncEsc(key)}" disabled>Save</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    ncPendingWrap.innerHTML = html;
+
+    ncPendingWrap.querySelectorAll('input[data-ncpendinginput]').forEach(input => {
+      const key = input.dataset.ncpendinginput;
+      const btn = ncPendingWrap.querySelector(`button[data-ncpendingsave="${CSS.escape(key)}"]`);
+      input.addEventListener('input', () => { btn.disabled = !input.value.trim(); });
+      input.addEventListener('keydown', e => { if (e.key === 'Enter' && input.value.trim()) btn.click(); });
+    });
+    ncPendingWrap.querySelectorAll('button[data-ncpendingsave]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const key = btn.dataset.ncpendingsave;
+        const input = ncPendingWrap.querySelector(`input[data-ncpendinginput="${CSS.escape(key)}"]`);
+        const jobCode = input.value.trim();
+        if (!jobCode) return;
+        const item = ncPending.find(p => ncKey(p.client, p.position) === key);
+        if (!item) return;
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        await ncSaveEntry(item.client, item.position, jobCode);
+        ncPending = ncPending.filter(p => ncKey(p.client, p.position) !== key);
+        ncRender();
+      });
+    });
+  }
+
+  function ncRenderRegistry(){
+    let rows = ncRegistry.filter(r => {
+      if (ncFilter === 'missing' && r.jobCode) return false;
+      if (ncFilter === 'has-code' && !r.jobCode) return false;
+      return true;
+    });
+    if (ncSearch){
+      rows = rows.filter(r => (r.client || '').toLowerCase().includes(ncSearch) || (r.position || '').toLowerCase().includes(ncSearch));
+    }
+    rows = rows.slice().sort((a,b) => a.client.localeCompare(b.client) || a.position.localeCompare(b.position));
+
+    if (!rows.length){
+      ncRegistryWrap.innerHTML = `<div class="empty-state">No registry entries match this filter.</div>`;
+      return;
+    }
+
+    let html = `<table><thead><tr>
+      <th>Client</th><th>Position</th><th>Job code</th><th>Status</th>
+    </tr></thead><tbody>`;
+    for (const r of rows){
+      html += `<tr data-ncregid="${ncEsc(r.id)}">
+        <td>${ncEsc(r.client)}</td>
+        <td>${ncEsc(r.position)}</td>
+        <td><input type="text" class="dl-cell-input" data-ncregfield="jobCode" data-ncregid="${ncEsc(r.id)}" value="${ncEsc(r.jobCode)}" placeholder="Job code"></td>
+        <td><span class="status-pill ${r.jobCode ? 'notexpired' : 'inactive'}">${r.jobCode ? 'Has job code' : 'Missing job code'}</span></td>
+      </tr>`;
+    }
+    html += `</tbody></table>`;
+    ncRegistryWrap.innerHTML = html;
+
+    ncRegistryWrap.querySelectorAll('input[data-ncregfield]').forEach(input => {
+      input.addEventListener('change', async () => {
+        const id = input.dataset.ncregid;
+        const row = ncRegistry.find(r => String(r.id) === String(id));
+        if (!row) return;
+        row.jobCode = input.value.trim();
+        row.updatedAt = new Date().toISOString();
+        if (ncSb){
+          try{
+            const { error } = await ncSb.from('client_position_registry')
+              .update({ job_code: row.jobCode || null, updated_at: row.updatedAt })
+              .eq('id', row.id);
+            if (error) throw error;
+          }catch(err){ console.error(err); }
+        }
+        ncRender();
+        const newTr = ncRegistryWrap.querySelector(`tr[data-ncregid="${CSS.escape(id)}"]`);
+        if (newTr) newTr.classList.add('row-corrected');
+      });
+    });
+  }
+
+  // an unresolved item was just given a job code — upsert it into the registry
+  async function ncSaveEntry(client, position, jobCode){
+    const now = new Date().toISOString();
+    if (ncSb){
+      try{
+        const { error } = await ncSb.from('client_position_registry')
+          .upsert([{ client, position, job_code: jobCode, updated_at: now }], { onConflict: 'client,position' });
+        if (error) throw error;
+        await ncLoadRegistry();
+        return;
+      }catch(err){
+        console.error(err);
+        setNcStatus('error', 'Couldn\u2019t save to the database — ' + (err.message || 'unknown error'));
+      }
+    }
+    // no DB connection (or save failed) — still reflect it locally so the UI settles
+    const ck = ncNorm(client), pk = ncNorm(position);
+    const existing = ncRegistry.find(r => ncNorm(r.client) === ck && ncNorm(r.position) === pk);
+    if (existing){ existing.jobCode = jobCode; existing.updatedAt = now; }
+    else ncRegistry.push({ id: 'local-' + Date.now() + Math.random(), client, position, jobCode, updatedAt: now });
+  }
+
+  // ---------- manual add ----------
+  ncAddBtn.addEventListener('click', async () => {
+    const client = ncAddClient.value.trim();
+    const position = ncAddPosition.value.trim();
+    const jobCode = ncAddJobCode.value.trim();
+    if (!client || !position) return;
+    ncAddBtn.disabled = true;
+    await ncSaveEntry(client, position, jobCode);
+    ncPending = ncPending.filter(p => ncKey(p.client, p.position) !== ncKey(client, position));
+    ncAddClient.value = ''; ncAddPosition.value = ''; ncAddJobCode.value = '';
+    ncAddBtn.disabled = false;
+    ncResults.classList.remove('hidden');
+    ncRightPlaceholder.classList.add('hidden');
+    ncRender();
+  });
+
+  // ---------- filters + search ----------
+  document.querySelectorAll('[data-ncfilter]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('[data-ncfilter]').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      ncFilter = chip.dataset.ncfilter;
+      ncRenderRegistry();
+    });
+  });
+  ncSearchBox.addEventListener('input', () => {
+    ncSearch = ncSearchBox.value.trim().toLowerCase();
+    ncRenderRegistry();
+  });
+
+  // ---------- export ----------
+  function ncCsvEscape(v){
+    const s = (v === null || v === undefined) ? '' : String(v);
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+    return s;
+  }
+  ncExportCsvBtn.addEventListener('click', () => {
+    if (!ncRegistry.length) return;
+    const headers = ['Client','Position','Job Code'];
+    const csvRows = [headers];
+    for (const r of ncRegistry.slice().sort((a,b) => a.client.localeCompare(b.client) || a.position.localeCompare(b.position))){
+      csvRows.push([r.client, r.position, r.jobCode || '']);
+    }
+    const csvContent = csvRows.map(row => row.map(ncCsvEscape).join(',')).join('\r\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `client-position-registry-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
 })();
 </script>
