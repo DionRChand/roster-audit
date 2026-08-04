@@ -725,6 +725,146 @@
   tbody tr.row-inactive{ background:#F7F8F9; color:#8A94A0; }
   tbody tr.row-inactive:hover{ background:#EEF0F2; }
 
+  /* ============ Weekly Clients ============ */
+  .wc-layout{ display:grid; grid-template-columns: 260px 1fr; gap:20px; align-items:start; }
+  @media (max-width: 980px){ .wc-layout{ grid-template-columns: 1fr; } }
+
+  .wc-week-panel{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:14px; position:sticky; top:14px;
+  }
+  .wc-week-panel h3{ margin:0 0 10px; font-size:13px; color:var(--navy-deep); }
+  .wc-add-week{
+    width:100%; margin-bottom:10px; padding:8px 10px; border-radius:8px;
+    border:1.5px dashed #9FC7CA; background:var(--teal-soft); color:var(--navy-deep);
+    font-weight:600; font-size:12.5px; cursor:pointer; transition:background .15s ease;
+  }
+  .wc-add-week:hover{ background:#c9ecee; }
+  .wc-week-list{ display:flex; flex-direction:column; gap:6px; max-height:520px; overflow-y:auto; }
+  .wc-week-item{
+    display:flex; flex-direction:column; gap:6px; padding:10px 12px; border-radius:9px;
+    border:1.5px solid var(--line); cursor:pointer; transition:border-color .15s ease, background .15s ease;
+    background:#FBFCFD;
+  }
+  .wc-week-item:hover{ border-color:#9FC7CA; }
+  .wc-week-item.active{ border-color:var(--teal); background:var(--teal-soft); }
+  .wc-week-item .wc-wk-label{ font-size:12.5px; font-weight:700; color:var(--navy-deep); }
+  .wc-week-item .wc-wk-sub{ font-size:10.5px; color:var(--text-soft); }
+  .wc-week-item .wc-mini-bar{ height:6px; border-radius:6px; background:#E3E8EC; overflow:hidden; }
+  .wc-week-item .wc-mini-bar-fill{ height:100%; border-radius:6px; background:linear-gradient(90deg, var(--teal), #3DD16B); transition:width .3s ease; }
+  .wc-week-item .wc-wk-foot{ display:flex; align-items:center; justify-content:space-between; }
+  .wc-badge{
+    display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:800;
+    letter-spacing:.4px; text-transform:uppercase; padding:2px 7px; border-radius:20px;
+  }
+  .wc-badge.starter{ background:#EFE3F5; color:#6B4A9E; }
+  .wc-badge.progress{ background:#FBF1DF; color:#B57A15; }
+  .wc-badge.almost{ background:#CFF3F4; color:#0B7A80; }
+  .wc-badge.complete{ background:#D3EFE0; color:#1E7A4C; }
+
+  .wc-header-card{
+    background:linear-gradient(135deg, var(--navy) 0%, var(--navy-mid) 100%); color:#fff;
+    border-radius:var(--radius); padding:22px 24px; display:flex; align-items:center; gap:24px;
+    box-shadow:var(--shadow); margin-bottom:18px; flex-wrap:wrap;
+  }
+  .wc-ring-wrap{ position:relative; width:92px; height:92px; flex-shrink:0; }
+  .wc-ring-wrap svg{ transform:rotate(-90deg); }
+  .wc-ring-pct{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:19px; font-weight:800;
+  }
+  .wc-header-info{ flex:1; min-width:220px; }
+  .wc-header-info h2{ margin:0 0 4px; font-size:18px; }
+  .wc-header-info p{ margin:0; font-size:12.5px; color:#B7C4D1; }
+  .wc-header-stats{ display:flex; gap:22px; flex-wrap:wrap; }
+  .wc-header-stat .n{ font-size:20px; font-weight:800; }
+  .wc-header-stat .l{ font-size:10.5px; color:#9FB0BF; text-transform:uppercase; letter-spacing:.4px; font-weight:600; }
+  .wc-streak{
+    display:flex; align-items:center; gap:6px; background:rgba(255,255,255,0.08);
+    border:1px solid rgba(255,255,255,0.16); border-radius:20px; padding:6px 13px; font-size:12px; font-weight:700;
+  }
+
+  .wc-subtabs{ display:flex; gap:8px; margin-bottom:16px; }
+  .wc-subtab-btn{
+    padding:9px 16px; border-radius:9px; border:1.5px solid var(--line); background:var(--card);
+    font-size:12.5px; font-weight:700; color:var(--text-soft); cursor:pointer; transition:.15s ease;
+  }
+  .wc-subtab-btn:hover{ border-color:#9FC7CA; }
+  .wc-subtab-btn.active{ border-color:var(--teal); background:var(--teal-soft); color:var(--navy-deep); }
+  .wc-subview{ display:none; }
+  .wc-subview.active{ display:block; }
+
+  .wc-client-group{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    margin-bottom:14px; overflow:hidden; box-shadow:var(--shadow);
+  }
+  .wc-client-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:13px 16px; background:#FBFCFD; border-bottom:1px solid var(--line); cursor:pointer;
+  }
+  .wc-client-head .wc-ch-left{ display:flex; align-items:center; gap:10px; }
+  .wc-client-head h4{ margin:0; font-size:13.5px; color:var(--navy-deep); }
+  .wc-client-head .wc-ch-count{ font-size:11px; color:var(--text-soft); font-weight:600; }
+  .wc-client-body{ padding:4px 0; }
+  .wc-row{
+    display:grid; grid-template-columns: 1fr 110px 1fr 90px 110px; gap:10px; align-items:center;
+    padding:9px 16px; border-top:1px solid #F0F2F4; font-size:12.5px;
+  }
+  .wc-row:first-child{ border-top:none; }
+  .wc-row.is-complete{ background:#F6FBF8; }
+  .wc-row .wc-pos{ font-weight:600; color:var(--navy-deep); }
+  .wc-row .wc-type-chip{
+    display:inline-block; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.3px;
+    padding:3px 8px; border-radius:20px; text-align:center;
+  }
+  .wc-type-chip.supervisor{ background:#CFE3F5; color:#1E5C9E; }
+  .wc-type-chip.manual{ background:#FBE9D6; color:#B5601A; }
+  .wc-row .wc-contact-email{ font-size:11.5px; color:var(--text-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .wc-row .wc-row-btn{
+    border:1.5px solid var(--line); background:#fff; border-radius:7px; padding:5px 10px;
+    font-size:11px; font-weight:700; cursor:pointer; transition:.15s ease; white-space:nowrap;
+  }
+  .wc-row .wc-row-btn:hover{ border-color:var(--teal); }
+  .wc-row .wc-row-btn.done{ background:#D3EFE0; border-color:#9FDAB6; color:#1E7A4C; }
+  @media (max-width: 720px){ .wc-row{ grid-template-columns: 1fr 1fr; grid-auto-rows:auto; } }
+
+  .wc-contact-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px; margin-bottom:12px; box-shadow:var(--shadow);
+  }
+  .wc-contact-card h4{ margin:0 0 12px; font-size:13.5px; color:var(--navy-deep); }
+  .wc-contact-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width: 720px){ .wc-contact-grid{ grid-template-columns:1fr; } }
+  .wc-contact-col{ display:flex; flex-direction:column; gap:6px; }
+  .wc-contact-col .wc-cc-label{ font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--text-soft); }
+  .wc-contact-col input{
+    padding:8px 10px; border:1.5px solid var(--line); border-radius:7px; font-size:12.5px; font-family:inherit;
+  }
+  .wc-contact-col input:focus{ outline:none; border-color:var(--teal); }
+
+  .wc-modal-overlay{
+    position:fixed; inset:0; background:rgba(22,33,45,0.55); display:flex; align-items:center; justify-content:center;
+    z-index:200; padding:20px;
+  }
+  .wc-modal-overlay.hidden{ display:none; }
+  .wc-modal-box{
+    background:#fff; border-radius:14px; padding:24px; width:100%; max-width:420px; box-shadow:0 20px 60px -12px rgba(22,33,45,0.4);
+  }
+  .wc-modal-box h3{ margin:0 0 14px; font-size:16px; color:var(--navy-deep); }
+  .wc-modal-field{ margin-bottom:12px; display:flex; flex-direction:column; gap:5px; }
+  .wc-modal-field label{ font-size:11px; font-weight:700; color:var(--text-soft); text-transform:uppercase; letter-spacing:.3px; }
+  .wc-modal-field input, .wc-modal-field select{
+    padding:9px 11px; border:1.5px solid var(--line); border-radius:8px; font-size:13px; font-family:inherit;
+  }
+  .wc-modal-field input:focus, .wc-modal-field select:focus{ outline:none; border-color:var(--teal); }
+  .wc-modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:18px; }
+
+  .wc-reminder-box{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px;
+    margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  }
+  .wc-reminder-box p{ margin:0; font-size:12px; color:var(--text-soft); }
+
   .nc-action-cell{ display:flex; gap:6px; flex-wrap:wrap; }
   .nc-small-btn{ padding:5px 10px; font-size:11.5px; font-weight:600; border-radius:7px; }
 
@@ -982,6 +1122,7 @@
       <button class="tab-btn" data-tab="panel-goodman" type="button"><span class="tab-dot"></span><span class="tab-label">Goodman Level Checks</span><span class="tab-close">✕</span></button>
       <button class="tab-btn" data-tab="panel-driscolls" type="button"><span class="tab-dot"></span><span class="tab-label">Driscolls Level Checks</span><span class="tab-close">✕</span></button>
       <button class="tab-btn" data-tab="panel-newclient" type="button"><span class="tab-dot"></span><span class="tab-label">New Client Analysis</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn" data-tab="panel-weekly" type="button"><span class="tab-dot"></span><span class="tab-label">Weekly Clients</span><span class="tab-close">✕</span></button>
       <button class="new-tab-btn" type="button" title="New tab" tabindex="-1">+</button>
     </div>
   </div>
@@ -1980,6 +2121,177 @@
       </main>
 
     </div>
+  </div>
+
+  <div class="wrap tab-panel" id="panel-weekly">
+    <div class="panel-loading-overlay show" id="panel-weekly-loading" data-conn="wcConnDot">
+      <div class="panel-spinner"></div>
+      <div class="panel-loading-text">Loading data<span class="dot-bounce"></span><span class="dot-bounce"></span><span class="dot-bounce"></span></div>
+    </div>
+
+    <div class="wc-layout">
+
+      <aside class="wc-week-panel">
+        <div class="db-panel conn-status-card">
+          <h3><span class="conn-dot connecting" id="wcConnDot"></span> Database connection</h3>
+          <p class="sub" id="wcConnLabel">Connecting to chandler-roster…</p>
+        </div>
+        <h3>Week Ending (Mon – Sun)</h3>
+        <button class="wc-add-week" id="wcAddWeekBtn" type="button">+ Add a week manually</button>
+        <div class="wc-week-list" id="wcWeekList">
+          <div class="empty-state" style="padding:20px 8px;">No weeks yet. Upload this week's roster report on the New Client Analysis tab, or add a week manually.</div>
+        </div>
+      </aside>
+
+      <main class="main-col">
+
+        <div id="wcRightPlaceholder" class="right-placeholder">
+          <div class="rp-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="4" y="5" width="16" height="15" rx="2" stroke="#0CBBC1" stroke-width="1.8"/>
+              <path d="M4 9.5h16M8 3v3.4M16 3v3.4" stroke="#0CBBC1" stroke-width="1.8" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <h3>Pick a week</h3>
+          <p>Select a week ending on the left, or upload this week's roster report from the New Client Analysis tab and one will be created automatically from the shift dates in the file.</p>
+        </div>
+
+        <div id="wcWeekView" class="hidden">
+
+          <div class="wc-header-card">
+            <div class="wc-ring-wrap">
+              <svg width="92" height="92" viewBox="0 0 92 92">
+                <circle cx="46" cy="46" r="40" stroke="rgba(255,255,255,0.18)" stroke-width="8" fill="none"/>
+                <circle id="wcRingFg" cx="46" cy="46" r="40" stroke="#0CBBC1" stroke-width="8" fill="none" stroke-linecap="round" stroke-dasharray="251.2" stroke-dashoffset="251.2" style="transition:stroke-dashoffset .5s ease;"/>
+              </svg>
+              <div class="wc-ring-pct" id="wcRingPct">0%</div>
+            </div>
+            <div class="wc-header-info">
+              <h2 id="wcWeekTitle">Week Ending —</h2>
+              <p id="wcWeekSub">0 of 0 timesheets filed</p>
+            </div>
+            <div class="wc-header-stats">
+              <div class="wc-header-stat"><div class="n" id="wcStatDone">0</div><div class="l">Filed</div></div>
+              <div class="wc-header-stat"><div class="n" id="wcStatPending">0</div><div class="l">Pending</div></div>
+              <div class="wc-header-stat"><div class="n" id="wcStatClients">0</div><div class="l">Clients</div></div>
+            </div>
+            <div class="wc-streak" id="wcStreakChip">0 week streak</div>
+          </div>
+
+          <div class="wc-subtabs">
+            <button type="button" class="wc-subtab-btn active" data-wcsub="timesheets">Timesheets</button>
+            <button type="button" class="wc-subtab-btn" data-wcsub="contacts">Supervisor &amp; Manual Contacts</button>
+          </div>
+
+          <div class="wc-subview active" id="wcSubTimesheets">
+            <div class="toolbar">
+              <h3 style="font-size:14.5px; margin:0 10px 0 0;">Client Timesheets</h3>
+              <div class="filters">
+                <div class="mchip active" data-wcfilter="all">All</div>
+                <div class="mchip" data-wcfilter="pending">Pending</div>
+                <div class="mchip" data-wcfilter="complete">Complete</div>
+                <input type="text" class="search" id="wcSearchBox" placeholder="Search client or position…">
+              </div>
+              <div class="toolbar-right">
+                <button class="btn ghost" id="wcCopyReminderBtn">Copy reminder list</button>
+                <button class="btn teal" id="wcAddClientBtn">+ Add client / position</button>
+              </div>
+            </div>
+            <div id="wcGroupsWrap"></div>
+          </div>
+
+          <div class="wc-subview" id="wcSubContacts">
+            <div class="db-panel" style="margin-bottom:14px;">
+              <h3>How contacts work</h3>
+              <p class="sub" style="margin-bottom:0;">Set the Supervisor and Manual timesheet contact for each client here — contacts are shared across every week, so update them once and they show up next to that client every week. Use "Copy reminder list" on the Timesheets tab to pull every pending client this week with its contact emails, ready to paste into an Outlook reminder.</p>
+            </div>
+            <div class="toolbar">
+              <h3 style="font-size:14.5px; margin:0 10px 0 0;">Client Contacts</h3>
+              <div class="filters">
+                <input type="text" class="search" id="wcContactSearchBox" placeholder="Search client…">
+              </div>
+              <div class="toolbar-right">
+                <button class="btn teal" id="wcAddContactBtn">+ Add client contact</button>
+              </div>
+            </div>
+            <div id="wcContactsWrap"></div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+
+    <div id="wcWeekModal" class="wc-modal-overlay hidden">
+      <div class="wc-modal-box">
+        <h3>Add a week</h3>
+        <div class="wc-modal-field">
+          <label>Week ending (Sunday)</label>
+          <input type="date" id="wcWeekModalDate">
+        </div>
+        <div class="wc-modal-actions">
+          <button type="button" class="btn ghost" id="wcWeekModalCancel">Cancel</button>
+          <button type="button" class="btn teal" id="wcWeekModalSave">Add week</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="wcClientModal" class="wc-modal-overlay hidden">
+      <div class="wc-modal-box">
+        <h3>Add client / position</h3>
+        <div class="wc-modal-field">
+          <label>Client</label>
+          <input type="text" id="wcModalClient" list="wcClientList" placeholder="Client name" autocomplete="off">
+          <datalist id="wcClientList"></datalist>
+        </div>
+        <div class="wc-modal-field">
+          <label>Position</label>
+          <input type="text" id="wcModalPosition" list="wcPositionList" placeholder="Position" autocomplete="off">
+          <datalist id="wcPositionList"></datalist>
+        </div>
+        <div class="wc-modal-field">
+          <label>Timesheet type</label>
+          <select id="wcModalType">
+            <option value="Manual">Manual</option>
+            <option value="Supervisor">Supervisor</option>
+          </select>
+        </div>
+        <div class="wc-modal-actions">
+          <button type="button" class="btn ghost" id="wcClientModalCancel">Cancel</button>
+          <button type="button" class="btn teal" id="wcClientModalSave">Add to this week</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="wcContactModal" class="wc-modal-overlay hidden">
+      <div class="wc-modal-box">
+        <h3 id="wcContactModalTitle">Add client contact</h3>
+        <div class="wc-modal-field">
+          <label>Client</label>
+          <input type="text" id="wcContactClient" list="wcClientList" placeholder="Client name" autocomplete="off">
+        </div>
+        <div class="wc-modal-field">
+          <label>Supervisor name</label>
+          <input type="text" id="wcContactSupName" placeholder="e.g. Nova Baretto">
+        </div>
+        <div class="wc-modal-field">
+          <label>Supervisor email</label>
+          <input type="email" id="wcContactSupEmail" placeholder="supervisor@client.com.au">
+        </div>
+        <div class="wc-modal-field">
+          <label>Manual timesheet contact name</label>
+          <input type="text" id="wcContactManName" placeholder="e.g. Payroll admin">
+        </div>
+        <div class="wc-modal-field">
+          <label>Manual timesheet contact email</label>
+          <input type="email" id="wcContactManEmail" placeholder="admin@client.com.au">
+        </div>
+        <div class="wc-modal-actions">
+          <button type="button" class="btn ghost" id="wcContactModalCancel">Cancel</button>
+          <button type="button" class="btn teal" id="wcContactModalSave">Save contact</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 
 
@@ -7023,6 +7335,7 @@ ${body}
     const headers = rows[0];
     const ci = ncFindHeader(headers, 'CLIENT');
     const pi = ncFindHeader(headers, 'POSITION');
+    const di = ncFindHeader(headers, 'SHIFT DATE');
     if (ci === -1 || pi === -1){
       ncPendingWrap.innerHTML = `<div class="empty-state">Couldn't find the CLIENT or POSITION columns in "${ncEsc(sheetName)}". Check the headers match the Roster Schedule export format.</div>`;
       ncPendingSection.classList.remove('hidden');
@@ -7030,6 +7343,7 @@ ${body}
     }
 
     const comboMap = new Map();
+    const shiftDates = [];
     for (let i = 1; i < rows.length; i++){
       const r = rows[i];
       if (!r) continue;
@@ -7039,6 +7353,10 @@ ${body}
       const key = ncKey(client, position);
       if (!comboMap.has(key)) comboMap.set(key, { client, position, count: 0 });
       comboMap.get(key).count++;
+      if (di !== -1){
+        const iso = wcToISODate(r[di]);
+        if (iso) shiftDates.push(iso);
+      }
     }
 
     if (!comboMap.size){
@@ -7062,6 +7380,13 @@ ${body}
     ncFooterNote.textContent = `${comboMap.size} client/position combination(s) found in "${sheetName}". ${pending.length ? pending.length + ' need a job code before they settle.' : 'Everything already matches the registry.'}`;
     ncRender();
     ncQueueModalPrompts(pending);
+
+    // Feed the Weekly Clients tracker: work out the Mon–Sun week this upload covers
+    // from its SHIFT DATE column, then make sure every Client/Position on it exists
+    // as a timesheet line for that week.
+    if (shiftDates.length && typeof wcRegisterFromRoster === 'function'){
+      wcRegisterFromRoster(shiftDates, Array.from(comboMap.values()));
+    }
   }
 
   // ---------- render ----------
@@ -7360,6 +7685,542 @@ ${body}
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  });
+
+  // ---------- Weekly Clients (timesheet filing tracker, driven by Roster Report uploads) ----------
+  const WC_SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
+  const WC_SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
+
+  const wcConnDot = document.getElementById('wcConnDot');
+  const wcConnLabel = document.getElementById('wcConnLabel');
+  const wcAddWeekBtn = document.getElementById('wcAddWeekBtn');
+  const wcWeekList = document.getElementById('wcWeekList');
+  const wcRightPlaceholder = document.getElementById('wcRightPlaceholder');
+  const wcWeekView = document.getElementById('wcWeekView');
+  const wcRingFg = document.getElementById('wcRingFg');
+  const wcRingPct = document.getElementById('wcRingPct');
+  const wcWeekTitle = document.getElementById('wcWeekTitle');
+  const wcWeekSub = document.getElementById('wcWeekSub');
+  const wcStatDone = document.getElementById('wcStatDone');
+  const wcStatPending = document.getElementById('wcStatPending');
+  const wcStatClients = document.getElementById('wcStatClients');
+  const wcStreakChip = document.getElementById('wcStreakChip');
+  const wcSearchBox = document.getElementById('wcSearchBox');
+  const wcCopyReminderBtn = document.getElementById('wcCopyReminderBtn');
+  const wcAddClientBtn = document.getElementById('wcAddClientBtn');
+  const wcGroupsWrap = document.getElementById('wcGroupsWrap');
+  const wcContactSearchBox = document.getElementById('wcContactSearchBox');
+  const wcAddContactBtn = document.getElementById('wcAddContactBtn');
+  const wcContactsWrap = document.getElementById('wcContactsWrap');
+
+  const wcWeekModal = document.getElementById('wcWeekModal');
+  const wcWeekModalDate = document.getElementById('wcWeekModalDate');
+  const wcWeekModalCancel = document.getElementById('wcWeekModalCancel');
+  const wcWeekModalSave = document.getElementById('wcWeekModalSave');
+
+  const wcClientModal = document.getElementById('wcClientModal');
+  const wcModalClient = document.getElementById('wcModalClient');
+  const wcModalPosition = document.getElementById('wcModalPosition');
+  const wcModalType = document.getElementById('wcModalType');
+  const wcClientList = document.getElementById('wcClientList');
+  const wcPositionList = document.getElementById('wcPositionList');
+  const wcClientModalCancel = document.getElementById('wcClientModalCancel');
+  const wcClientModalSave = document.getElementById('wcClientModalSave');
+
+  const wcContactModal = document.getElementById('wcContactModal');
+  const wcContactModalTitle = document.getElementById('wcContactModalTitle');
+  const wcContactClient = document.getElementById('wcContactClient');
+  const wcContactSupName = document.getElementById('wcContactSupName');
+  const wcContactSupEmail = document.getElementById('wcContactSupEmail');
+  const wcContactManName = document.getElementById('wcContactManName');
+  const wcContactManEmail = document.getElementById('wcContactManEmail');
+  const wcContactModalCancel = document.getElementById('wcContactModalCancel');
+  const wcContactModalSave = document.getElementById('wcContactModalSave');
+
+  let wcSb = null;
+  let wcWeeks = [];       // { weekEnding: 'YYYY-MM-DD' (Sun), weekStart: 'YYYY-MM-DD' (Mon) }
+  let wcTracker = [];     // { id, weekEnding, client, position, type, status, source, completedAt }
+  let wcContacts = [];    // { client, supName, supEmail, manName, manEmail }
+  let wcCurrentWeek = null;
+  let wcFilter = 'all';
+  let wcSearch = '';
+
+  // ---------- date helpers ----------
+  function wcPad(n){ return String(n).padStart(2,'0'); }
+  function wcFmtISO(y,m,d){ return `${y}-${wcPad(m)}-${wcPad(d)}`; }
+  function wcToISODate(v){
+    if (v === null || v === undefined || v === '') return null;
+    if (v instanceof Date){
+      if (isNaN(v.getTime())) return null;
+      return wcFmtISO(v.getUTCFullYear(), v.getUTCMonth()+1, v.getUTCDate());
+    }
+    if (typeof v === 'number'){
+      const d = new Date(Date.UTC(1899,11,30) + Math.round(v) * 86400000);
+      return wcFmtISO(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
+    }
+    const s = String(v).trim();
+    if (!s) return null;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+    let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (m) return wcFmtISO(+m[3], +m[2], +m[1]); // AU format: DD/MM/YYYY
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return wcFmtISO(d.getFullYear(), d.getMonth()+1, d.getDate());
+    return null;
+  }
+  function wcParseISO(iso){ const [y,m,d] = iso.split('-').map(Number); return new Date(Date.UTC(y, m-1, d)); }
+  function wcMondayOf(iso){
+    const d = wcParseISO(iso);
+    const day = d.getUTCDay(); // 0=Sun..6=Sat
+    const diff = (day === 0 ? -6 : 1 - day);
+    d.setUTCDate(d.getUTCDate() + diff);
+    return wcFmtISO(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
+  }
+  function wcSundayFromMonday(mondayISO){
+    const d = wcParseISO(mondayISO);
+    d.setUTCDate(d.getUTCDate() + 6);
+    return wcFmtISO(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
+  }
+  function wcFmtShort(iso){ return wcParseISO(iso).toLocaleDateString('en-AU', { day:'numeric', month:'short', timeZone:'UTC' }); }
+  function wcFmtFull(iso){
+    const start = wcParseISO(wcMondayOfFromEnding(iso));
+    const end = wcParseISO(iso);
+    const startStr = start.toLocaleDateString('en-AU', { day:'numeric', month:'short', timeZone:'UTC' });
+    const endStr = end.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short', year:'numeric', timeZone:'UTC' });
+    return `${startStr} \u2013 ${endStr}`;
+  }
+  function wcMondayOfFromEnding(sundayISO){
+    const d = wcParseISO(sundayISO);
+    d.setUTCDate(d.getUTCDate() - 6);
+    return wcFmtISO(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
+  }
+
+  // ---------- connect ----------
+  async function wcAutoConnect(){
+    try{
+      const client = window.supabase.createClient(WC_SUPABASE_URL, WC_SUPABASE_KEY);
+      const { error } = await client.from('weekly_client_tracker').select('id').limit(1);
+      if (error) throw error;
+      wcSb = client;
+      wcConnDot.className = 'conn-dot on';
+      wcConnLabel.textContent = 'Connected to chandler-roster';
+      await wcLoadAll();
+    }catch(err){
+      wcSb = null;
+      wcConnDot.className = 'conn-dot off';
+      wcConnLabel.textContent = 'Connection failed \u2014 the weekly_client_weeks / weekly_client_tracker / client_contacts tables may not exist yet';
+      console.error(err);
+      wcRenderWeekList();
+    }
+  }
+  wcAutoConnect();
+  window.wcReconnect = wcAutoConnect;
+
+  async function wcLoadAll(){
+    if (!wcSb) return;
+    try{
+      const [weeksRes, trackerRes, contactsRes] = await Promise.all([
+        wcSb.from('weekly_client_weeks').select('*').order('week_ending', { ascending:false }),
+        wcSb.from('weekly_client_tracker').select('*'),
+        wcSb.from('client_contacts').select('*').order('client', { ascending:true })
+      ]);
+      if (weeksRes.error) console.error(weeksRes.error);
+      if (trackerRes.error) console.error(trackerRes.error);
+      if (contactsRes.error) console.error(contactsRes.error);
+      wcWeeks = (weeksRes.data || []).map(w => ({ weekEnding: w.week_ending, weekStart: w.week_start }));
+      wcTracker = (trackerRes.data || []).map(t => ({
+        id: t.id, weekEnding: t.week_ending, client: t.client, position: t.position,
+        type: t.type || 'Manual', status: t.status || 'pending', source: t.source || 'manual', completedAt: t.completed_at || null
+      }));
+      wcContacts = (contactsRes.data || []).map(c => ({
+        client: c.client, supName: c.supervisor_name || '', supEmail: c.supervisor_email || '',
+        manName: c.manual_name || '', manEmail: c.manual_email || ''
+      }));
+    }catch(err){ console.error(err); }
+    wcRenderWeekList();
+    if (wcCurrentWeek) wcSelectWeek(wcCurrentWeek);
+  }
+
+  // ---------- auto-registration from a Roster Report upload (called from New Client Analysis) ----------
+  async function wcRegisterFromRoster(shiftDatesISO, combos){
+    if (!shiftDatesISO || !shiftDatesISO.length) return;
+    const earliest = shiftDatesISO.slice().sort()[0];
+    const weekStart = wcMondayOf(earliest);
+    const weekEnding = wcSundayFromMonday(weekStart);
+    await wcEnsureWeek(weekEnding, weekStart);
+    await wcEnsureTrackerRows(weekEnding, combos.map(c => ({ client: c.client, position: c.position })));
+    wcRenderWeekList();
+    wcSelectWeek(weekEnding);
+  }
+  window.wcRegisterFromRoster = wcRegisterFromRoster;
+
+  async function wcEnsureWeek(weekEnding, weekStart){
+    if (!wcWeeks.some(w => w.weekEnding === weekEnding)){
+      wcWeeks.push({ weekEnding, weekStart });
+    }
+    if (wcSb){
+      try{
+        const { error } = await wcSb.from('weekly_client_weeks')
+          .upsert([{ week_ending: weekEnding, week_start: weekStart }], { onConflict:'week_ending', ignoreDuplicates:true });
+        if (error) console.error(error);
+      }catch(err){ console.error(err); }
+    }
+  }
+
+  async function wcEnsureTrackerRows(weekEnding, rows){
+    const toInsert = [];
+    for (const r of rows){
+      if (!r.client || !r.position) continue;
+      const exists = wcTracker.some(t => t.weekEnding === weekEnding && ncNorm(t.client) === ncNorm(r.client) && ncNorm(t.position) === ncNorm(r.position));
+      if (exists) continue;
+      wcTracker.push({ id: 'local-'+Date.now()+Math.random(), weekEnding, client:r.client, position:r.position, type:'Manual', status:'pending', source:'roster', completedAt:null });
+      toInsert.push({ week_ending: weekEnding, client:r.client, position:r.position, type:'Manual', status:'pending', source:'roster' });
+    }
+    if (wcSb && toInsert.length){
+      try{
+        const { error } = await wcSb.from('weekly_client_tracker')
+          .upsert(toInsert, { onConflict:'week_ending,client,position', ignoreDuplicates:true });
+        if (error) console.error(error);
+        const { data, error: e2 } = await wcSb.from('weekly_client_tracker').select('*').eq('week_ending', weekEnding);
+        if (!e2){
+          wcTracker = wcTracker.filter(t => t.weekEnding !== weekEnding).concat((data||[]).map(t => ({
+            id: t.id, weekEnding: t.week_ending, client: t.client, position: t.position,
+            type: t.type || 'Manual', status: t.status || 'pending', source: t.source || 'manual', completedAt: t.completed_at || null
+          })));
+        }
+      }catch(err){ console.error(err); }
+    }
+  }
+
+  // ---------- gamified progress helpers ----------
+  function wcPctForWeek(weekEnding){
+    const rows = wcTracker.filter(t => t.weekEnding === weekEnding);
+    if (!rows.length) return 0;
+    const done = rows.filter(r => r.status === 'complete').length;
+    return Math.round((done / rows.length) * 100);
+  }
+  function wcBadgeFor(pct){
+    if (pct >= 100) return { cls:'complete', label:'Complete' };
+    if (pct >= 75) return { cls:'almost', label:'Almost there' };
+    if (pct >= 25) return { cls:'progress', label:'In progress' };
+    return { cls:'starter', label:'Just started' };
+  }
+  function wcComputeStreak(){
+    const sorted = wcWeeks.slice().sort((a,b) => b.weekEnding.localeCompare(a.weekEnding));
+    let streak = 0;
+    for (const w of sorted){
+      const rows = wcTracker.filter(t => t.weekEnding === w.weekEnding);
+      if (!rows.length) break;
+      const pct = Math.round((rows.filter(r => r.status === 'complete').length / rows.length) * 100);
+      if (pct >= 100) streak++; else break;
+    }
+    return streak;
+  }
+
+  // ---------- render: week list ----------
+  function wcRenderWeekList(){
+    if (!wcWeeks.length){
+      wcWeekList.innerHTML = `<div class="empty-state" style="padding:20px 8px;">No weeks yet. Upload this week's roster report on the New Client Analysis tab, or add a week manually.</div>`;
+      return;
+    }
+    const sorted = wcWeeks.slice().sort((a,b) => b.weekEnding.localeCompare(a.weekEnding));
+    let html = '';
+    for (const w of sorted){
+      const pct = wcPctForWeek(w.weekEnding);
+      const badge = wcBadgeFor(pct);
+      const active = w.weekEnding === wcCurrentWeek ? ' active' : '';
+      html += `<div class="wc-week-item${active}" data-wcweek="${ncEsc(w.weekEnding)}">
+        <div class="wc-wk-foot">
+          <span class="wc-wk-label">${ncEsc(wcFmtShort(w.weekStart))} \u2013 ${ncEsc(wcFmtShort(w.weekEnding))}</span>
+          <span class="wc-badge ${badge.cls}">${badge.label}</span>
+        </div>
+        <div class="wc-mini-bar"><div class="wc-mini-bar-fill" style="width:${pct}%;"></div></div>
+        <div class="wc-wk-sub">${pct}% filed</div>
+      </div>`;
+    }
+    wcWeekList.innerHTML = html;
+    wcWeekList.querySelectorAll('[data-wcweek]').forEach(el => {
+      el.addEventListener('click', () => wcSelectWeek(el.dataset.wcweek));
+    });
+  }
+
+  // ---------- render: selected week ----------
+  function wcSelectWeek(weekEnding){
+    wcCurrentWeek = weekEnding;
+    wcRightPlaceholder.classList.add('hidden');
+    wcWeekView.classList.remove('hidden');
+    wcWeekList.querySelectorAll('[data-wcweek]').forEach(el => el.classList.toggle('active', el.dataset.wcweek === weekEnding));
+
+    wcWeekTitle.textContent = `Week Ending ${wcFmtFull(weekEnding)}`;
+    const rows = wcTracker.filter(t => t.weekEnding === weekEnding);
+    const done = rows.filter(r => r.status === 'complete').length;
+    const pct = rows.length ? Math.round((done / rows.length) * 100) : 0;
+    wcWeekSub.textContent = `${done} of ${rows.length} timesheet${rows.length === 1 ? '' : 's'} filed`;
+    wcStatDone.textContent = String(done);
+    wcStatPending.textContent = String(rows.length - done);
+    wcStatClients.textContent = String(new Set(rows.map(r => ncNorm(r.client))).size);
+
+    const circumference = 251.2;
+    wcRingFg.style.strokeDashoffset = String(circumference * (1 - pct/100));
+    wcRingPct.textContent = pct + '%';
+
+    const streak = wcComputeStreak();
+    wcStreakChip.textContent = `${streak} week streak`;
+
+    wcRenderGroups();
+  }
+
+  function wcRenderGroups(){
+    if (!wcCurrentWeek){ wcGroupsWrap.innerHTML = ''; return; }
+    let rows = wcTracker.filter(t => t.weekEnding === wcCurrentWeek);
+    if (wcFilter === 'pending') rows = rows.filter(r => r.status !== 'complete');
+    if (wcFilter === 'complete') rows = rows.filter(r => r.status === 'complete');
+    if (wcSearch) rows = rows.filter(r => r.client.toLowerCase().includes(wcSearch) || r.position.toLowerCase().includes(wcSearch));
+
+    if (!rows.length){
+      wcGroupsWrap.innerHTML = `<div class="empty-state">No timesheet lines match. Use "+ Add client / position" to add one for this week.</div>`;
+      return;
+    }
+
+    const byClient = new Map();
+    for (const r of rows){
+      if (!byClient.has(r.client)) byClient.set(r.client, []);
+      byClient.get(r.client).push(r);
+    }
+    const clients = Array.from(byClient.keys()).sort((a,b) => a.localeCompare(b));
+
+    let html = '';
+    for (const client of clients){
+      const list = byClient.get(client).sort((a,b) => a.position.localeCompare(b.position));
+      const done = list.filter(r => r.status === 'complete').length;
+      const contact = wcContacts.find(c => ncNorm(c.client) === ncNorm(client));
+      html += `<div class="wc-client-group">
+        <div class="wc-client-head">
+          <div class="wc-ch-left"><h4>${ncEsc(client)}</h4><span class="wc-ch-count">${done}/${list.length} filed</span></div>
+        </div>
+        <div class="wc-client-body">`;
+      for (const r of list){
+        const email = r.type === 'Supervisor' ? (contact && contact.supEmail) : (contact && contact.manEmail);
+        html += `<div class="wc-row ${r.status === 'complete' ? 'is-complete' : ''}">
+          <div class="wc-pos">${ncEsc(r.position)}</div>
+          <span class="wc-type-chip ${r.type === 'Supervisor' ? 'supervisor' : 'manual'}">${ncEsc(r.type)}</span>
+          <div class="wc-contact-email">${email ? ncEsc(email) : '<span class="muted">No contact on file</span>'}</div>
+          <span class="status-pill ${r.status === 'complete' ? 'active' : 'inactive'}">${r.status === 'complete' ? 'Complete' : 'Pending'}</span>
+          <button type="button" class="wc-row-btn ${r.status === 'complete' ? 'done' : ''}" data-wctoggle="${ncEsc(String(r.id))}">${r.status === 'complete' ? 'Reopen' : 'Mark complete'}</button>
+        </div>`;
+      }
+      html += `</div></div>`;
+    }
+    wcGroupsWrap.innerHTML = html;
+    wcGroupsWrap.querySelectorAll('[data-wctoggle]').forEach(btn => {
+      btn.addEventListener('click', () => wcToggleComplete(btn.dataset.wctoggle));
+    });
+  }
+
+  async function wcToggleComplete(id){
+    const row = wcTracker.find(t => String(t.id) === String(id));
+    if (!row) return;
+    row.status = row.status === 'complete' ? 'pending' : 'complete';
+    row.completedAt = row.status === 'complete' ? new Date().toISOString() : null;
+    if (wcSb && !String(row.id).startsWith('local-')){
+      try{
+        const { error } = await wcSb.from('weekly_client_tracker')
+          .update({ status: row.status, completed_at: row.completedAt })
+          .eq('id', row.id);
+        if (error) console.error(error);
+      }catch(err){ console.error(err); }
+    }
+    wcRenderWeekList();
+    wcSelectWeek(wcCurrentWeek);
+  }
+
+  // ---------- sub-tabs ----------
+  document.querySelectorAll('.wc-subtab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.wc-subtab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('wcSubTimesheets').classList.toggle('active', btn.dataset.wcsub === 'timesheets');
+      document.getElementById('wcSubContacts').classList.toggle('active', btn.dataset.wcsub === 'contacts');
+      if (btn.dataset.wcsub === 'contacts') wcRenderContacts();
+    });
+  });
+
+  // ---------- filters + search ----------
+  document.querySelectorAll('#panel-weekly [data-wcfilter]').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#panel-weekly [data-wcfilter]').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      wcFilter = chip.dataset.wcfilter;
+      wcRenderGroups();
+    });
+  });
+  wcSearchBox.addEventListener('input', () => {
+    wcSearch = wcSearchBox.value.trim().toLowerCase();
+    wcRenderGroups();
+  });
+
+  // ---------- add week ----------
+  wcAddWeekBtn.addEventListener('click', () => {
+    wcWeekModalDate.value = '';
+    wcWeekModal.classList.remove('hidden');
+  });
+  wcWeekModalCancel.addEventListener('click', () => wcWeekModal.classList.add('hidden'));
+  wcWeekModalSave.addEventListener('click', async () => {
+    const val = wcWeekModalDate.value;
+    if (!val) return;
+    const monday = wcMondayOf(val);
+    const sunday = wcSundayFromMonday(monday);
+    await wcEnsureWeek(sunday, monday);
+    wcWeekModal.classList.add('hidden');
+    wcRenderWeekList();
+    wcSelectWeek(sunday);
+  });
+
+  // ---------- add client/position (manual) ----------
+  function wcRefreshClientDatalist(){
+    const clients = Array.from(new Set(ncRegistry.map(r => r.client))).sort((a,b) => a.localeCompare(b));
+    wcClientList.innerHTML = clients.map(c => `<option value="${ncEsc(c)}"></option>`).join('');
+  }
+  wcModalClient.addEventListener('input', () => {
+    const cVal = ncNorm(wcModalClient.value);
+    const positions = Array.from(new Set(ncRegistry.filter(r => ncNorm(r.client) === cVal).map(r => r.position))).sort((a,b) => a.localeCompare(b));
+    wcPositionList.innerHTML = positions.map(p => `<option value="${ncEsc(p)}"></option>`).join('');
+  });
+  wcAddClientBtn.addEventListener('click', () => {
+    if (!wcCurrentWeek) return;
+    wcRefreshClientDatalist();
+    wcModalClient.value = ''; wcModalPosition.value = ''; wcModalType.value = 'Manual';
+    wcClientModal.classList.remove('hidden');
+  });
+  wcClientModalCancel.addEventListener('click', () => wcClientModal.classList.add('hidden'));
+  wcClientModalSave.addEventListener('click', async () => {
+    const client = wcModalClient.value.trim();
+    const position = wcModalPosition.value.trim();
+    const type = wcModalType.value;
+    if (!client || !position || !wcCurrentWeek) return;
+    const local = { id: 'local-'+Date.now()+Math.random(), weekEnding: wcCurrentWeek, client, position, type, status:'pending', source:'manual', completedAt:null };
+    wcTracker.push(local);
+    if (wcSb){
+      try{
+        const { data, error } = await wcSb.from('weekly_client_tracker')
+          .upsert([{ week_ending: wcCurrentWeek, client, position, type, status:'pending', source:'manual' }], { onConflict:'week_ending,client,position' })
+          .select();
+        if (error) console.error(error);
+        else if (data && data[0]) local.id = data[0].id;
+      }catch(err){ console.error(err); }
+    }
+    wcClientModal.classList.add('hidden');
+    wcRenderWeekList();
+    wcSelectWeek(wcCurrentWeek);
+  });
+
+  // ---------- contacts ----------
+  function wcRenderContacts(){
+    const search = (wcContactSearchBox.value || '').trim().toLowerCase();
+    let list = wcContacts.slice().sort((a,b) => a.client.localeCompare(b.client));
+    if (search) list = list.filter(c => c.client.toLowerCase().includes(search));
+    if (!list.length){
+      wcContactsWrap.innerHTML = `<div class="empty-state">No client contacts saved yet. Use "+ Add client contact" to add the Supervisor and Manual timesheet contact for a client.</div>`;
+      return;
+    }
+    let html = '';
+    for (const c of list){
+      html += `<div class="wc-contact-card">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+          <h4 style="margin:0;">${ncEsc(c.client)}</h4>
+          <button type="button" class="btn ghost nc-small-btn" data-wceditcontact="${ncEsc(c.client)}">Edit</button>
+        </div>
+        <div class="wc-contact-grid">
+          <div class="wc-contact-col">
+            <span class="wc-cc-label">Supervisor</span>
+            <div>${c.supName ? ncEsc(c.supName) : '<span class="muted">No name on file</span>'}</div>
+            <div class="wc-contact-email">${c.supEmail ? ncEsc(c.supEmail) : '<span class="muted">No email on file</span>'}</div>
+          </div>
+          <div class="wc-contact-col">
+            <span class="wc-cc-label">Manual</span>
+            <div>${c.manName ? ncEsc(c.manName) : '<span class="muted">No name on file</span>'}</div>
+            <div class="wc-contact-email">${c.manEmail ? ncEsc(c.manEmail) : '<span class="muted">No email on file</span>'}</div>
+          </div>
+        </div>
+      </div>`;
+    }
+    wcContactsWrap.innerHTML = html;
+    wcContactsWrap.querySelectorAll('[data-wceditcontact]').forEach(btn => {
+      btn.addEventListener('click', () => wcOpenContactModal(btn.dataset.wceditcontact));
+    });
+  }
+  wcContactSearchBox.addEventListener('input', wcRenderContacts);
+
+  function wcOpenContactModal(client){
+    const existing = client ? wcContacts.find(c => c.client === client) : null;
+    wcContactModalTitle.textContent = existing ? 'Edit client contact' : 'Add client contact';
+    wcContactClient.value = existing ? existing.client : '';
+    wcContactClient.disabled = !!existing;
+    wcContactSupName.value = existing ? existing.supName : '';
+    wcContactSupEmail.value = existing ? existing.supEmail : '';
+    wcContactManName.value = existing ? existing.manName : '';
+    wcContactManEmail.value = existing ? existing.manEmail : '';
+    wcContactModal.classList.remove('hidden');
+  }
+  wcAddContactBtn.addEventListener('click', () => { wcRefreshClientDatalist(); wcOpenContactModal(null); });
+  wcContactModalCancel.addEventListener('click', () => { wcContactModal.classList.add('hidden'); wcContactClient.disabled = false; });
+  wcContactModalSave.addEventListener('click', async () => {
+    const client = wcContactClient.value.trim();
+    if (!client) return;
+    const payload = {
+      client,
+      supName: wcContactSupName.value.trim(),
+      supEmail: wcContactSupEmail.value.trim(),
+      manName: wcContactManName.value.trim(),
+      manEmail: wcContactManEmail.value.trim()
+    };
+    const idx = wcContacts.findIndex(c => ncNorm(c.client) === ncNorm(client));
+    if (idx >= 0) wcContacts[idx] = payload; else wcContacts.push(payload);
+    if (wcSb){
+      try{
+        const { error } = await wcSb.from('client_contacts').upsert([{
+          client, supervisor_name: payload.supName || null, supervisor_email: payload.supEmail || null,
+          manual_name: payload.manName || null, manual_email: payload.manEmail || null, updated_at: new Date().toISOString()
+        }], { onConflict:'client' });
+        if (error) console.error(error);
+      }catch(err){ console.error(err); }
+    }
+    wcContactModal.classList.add('hidden');
+    wcContactClient.disabled = false;
+    wcRenderContacts();
+    wcRenderGroups();
+  });
+
+  // ---------- copy reminder list ----------
+  wcCopyReminderBtn.addEventListener('click', () => {
+    if (!wcCurrentWeek) return;
+    const rows = wcTracker.filter(t => t.weekEnding === wcCurrentWeek && t.status !== 'complete');
+    if (!rows.length){
+      wcCopyReminderBtn.textContent = 'Nothing pending \u2713';
+      setTimeout(() => wcCopyReminderBtn.textContent = 'Copy reminder list', 1800);
+      return;
+    }
+    const byClient = new Map();
+    for (const r of rows){
+      if (!byClient.has(r.client)) byClient.set(r.client, []);
+      byClient.get(r.client).push(r);
+    }
+    let text = `Outstanding timesheets \u2014 Week Ending ${wcFmtFull(wcCurrentWeek)}\n\n`;
+    for (const [client, list] of byClient){
+      const contact = wcContacts.find(c => ncNorm(c.client) === ncNorm(client));
+      text += `${client}\n`;
+      for (const r of list){
+        const email = r.type === 'Supervisor' ? (contact && contact.supEmail) : (contact && contact.manEmail);
+        text += `  - ${r.position} (${r.type})${email ? ' \u2014 ' + email : ' \u2014 no contact on file'}\n`;
+      }
+      text += '\n';
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      wcCopyReminderBtn.textContent = 'Copied \u2713';
+      setTimeout(() => wcCopyReminderBtn.textContent = 'Copy reminder list', 1800);
+    }).catch(() => {
+      wcCopyReminderBtn.textContent = 'Copy failed';
+      setTimeout(() => wcCopyReminderBtn.textContent = 'Copy reminder list', 1800);
+    });
   });
 })();
 </script>
