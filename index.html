@@ -2213,7 +2213,8 @@
                 <input type="text" class="search" id="wcSearchBox" placeholder="Search client or position…">
               </div>
               <div class="toolbar-right">
-                <button class="btn ghost" id="wcCopyReminderBtn">Copy reminder list</button>
+                <button class="btn ghost" id="wcCopySupBtn">Copy Supervisor emails</button>
+                <button class="btn ghost" id="wcCopyManBtn">Copy Manual emails</button>
                 <button class="btn teal" id="wcAddClientBtn">+ Add client / position</button>
               </div>
             </div>
@@ -2223,7 +2224,7 @@
           <div class="wc-subview" id="wcSubContacts">
             <div class="db-panel" style="margin-bottom:14px;">
               <h3>How contacts work</h3>
-              <p class="sub" style="margin-bottom:0;">Set the Supervisor and Manual timesheet contact for each client here — contacts are shared across every week, so update them once and they show up next to that client every week. Use "Copy reminder list" on the Timesheets tab to pull every pending client this week with its contact emails, ready to paste into an Outlook reminder.</p>
+              <p class="sub" style="margin-bottom:0;">Set the Supervisor and Manual timesheet contact for each client here — contacts are shared across every week, so update them once and they show up next to that client every week. Use "Copy Supervisor emails" / "Copy Manual emails" on the Timesheets tab to pull the contact emails for every pending client this week, ready to paste into an Outlook reminder.</p>
             </div>
             <div class="toolbar">
               <h3 style="font-size:14.5px; margin:0 10px 0 0;">Client Contacts</h3>
@@ -7730,7 +7731,8 @@ ${body}
   const wcStatClients = document.getElementById('wcStatClients');
   const wcStreakChip = document.getElementById('wcStreakChip');
   const wcSearchBox = document.getElementById('wcSearchBox');
-  const wcCopyReminderBtn = document.getElementById('wcCopyReminderBtn');
+  const wcCopySupBtn = document.getElementById('wcCopySupBtn');
+  const wcCopyManBtn = document.getElementById('wcCopyManBtn');
   const wcAddClientBtn = document.getElementById('wcAddClientBtn');
   const wcGroupsWrap = document.getElementById('wcGroupsWrap');
   const wcContactSearchBox = document.getElementById('wcContactSearchBox');
@@ -7924,6 +7926,9 @@ ${body}
       // client/position is already known there, so the same client doesn't end up split
       // across slightly different text on different weeks.
       const canon = ncRegistry.find(nc => ncNorm(nc.client) === ncNorm(r.client) && ncNorm(nc.position) === ncNorm(r.position));
+      // Skip anything excluded on the New Client Analysis registry — excluded
+      // client/positions shouldn't show up on the Weekly Clients tracker.
+      if (canon && canon.status === 'excluded') continue;
       const client = canon ? canon.client : r.client;
       const position = canon ? canon.position : r.position;
       const exists = wcTracker.some(t => t.weekEnding === weekEnding && ncNorm(t.client) === ncNorm(client) && ncNorm(t.position) === ncNorm(position));
@@ -7956,7 +7961,7 @@ ${body}
 
   // ---------- gamified progress helpers ----------
   function wcPctForWeek(weekEnding){
-    const rows = wcTracker.filter(t => t.weekEnding === weekEnding);
+    const rows = wcTracker.filter(t => t.weekEnding === weekEnding && !wcIsExcluded(t.client, t.position));
     if (!rows.length) return 0;
     const done = rows.filter(r => r.status === 'complete').length;
     return Math.round((done / rows.length) * 100);
@@ -7971,7 +7976,7 @@ ${body}
     const sorted = wcWeeks.slice().sort((a,b) => b.weekEnding.localeCompare(a.weekEnding));
     let streak = 0;
     for (const w of sorted){
-      const rows = wcTracker.filter(t => t.weekEnding === w.weekEnding);
+      const rows = wcTracker.filter(t => t.weekEnding === w.weekEnding && !wcIsExcluded(t.client, t.position));
       if (!rows.length) break;
       const pct = Math.round((rows.filter(r => r.status === 'complete').length / rows.length) * 100);
       if (pct >= 100) streak++; else break;
@@ -8014,7 +8019,7 @@ ${body}
     wcWeekList.querySelectorAll('[data-wcweek]').forEach(el => el.classList.toggle('active', el.dataset.wcweek === weekEnding));
 
     wcWeekTitle.textContent = `Week Ending ${wcFmtFull(weekEnding)}`;
-    const rows = wcTracker.filter(t => t.weekEnding === weekEnding);
+    const rows = wcTracker.filter(t => t.weekEnding === weekEnding && !wcIsExcluded(t.client, t.position));
     const done = rows.filter(r => r.status === 'complete').length;
     const pct = rows.length ? Math.round((done / rows.length) * 100) : 0;
     wcWeekSub.textContent = `${done} of ${rows.length} timesheet${rows.length === 1 ? '' : 's'} filed`;
@@ -8032,9 +8037,17 @@ ${body}
     wcRenderGroups();
   }
 
+  // A client/position that's been marked Excluded on the New Client Analysis
+  // registry shouldn't surface on the Weekly Clients tracker, even if it was
+  // added to a week before being excluded (or slipped in from an older upload).
+  function wcIsExcluded(client, position){
+    const canon = ncRegistry.find(nc => ncNorm(nc.client) === ncNorm(client) && ncNorm(nc.position) === ncNorm(position));
+    return !!canon && canon.status === 'excluded';
+  }
+
   function wcRenderGroups(){
     if (!wcCurrentWeek){ wcGroupsWrap.innerHTML = ''; return; }
-    const allRowsThisWeek = wcTracker.filter(t => t.weekEnding === wcCurrentWeek);
+    const allRowsThisWeek = wcTracker.filter(t => t.weekEnding === wcCurrentWeek && !wcIsExcluded(t.client, t.position));
     let rows = allRowsThisWeek;
     if (wcFilter === 'pending') rows = rows.filter(r => r.status !== 'complete');
     if (wcFilter === 'complete') rows = rows.filter(r => r.status === 'complete');
@@ -8340,38 +8353,44 @@ ${body}
     wcRenderGroups();
   });
 
-  // ---------- copy reminder list ----------
-  wcCopyReminderBtn.addEventListener('click', () => {
+  // ---------- copy reminder emails (Supervisor / Manual, kept separate) ----------
+  // Pulls every pending (not complete, not excluded) client/position for the
+  // current week that matches the given type, and copies the unique contact
+  // emails — ready to paste straight into an Outlook "To" field.
+  function wcCopyEmailsForType(type, btn, defaultLabel){
     if (!wcCurrentWeek) return;
-    const rows = wcTracker.filter(t => t.weekEnding === wcCurrentWeek && t.status !== 'complete');
+    const rows = wcTracker.filter(t =>
+      t.weekEnding === wcCurrentWeek &&
+      t.status !== 'complete' &&
+      t.type === type &&
+      !wcIsExcluded(t.client, t.position)
+    );
     if (!rows.length){
-      wcCopyReminderBtn.textContent = 'Nothing pending \u2713';
-      setTimeout(() => wcCopyReminderBtn.textContent = 'Copy reminder list', 1800);
+      btn.textContent = 'Nothing pending \u2713';
+      setTimeout(() => btn.textContent = defaultLabel, 1800);
       return;
     }
-    const byClient = new Map();
-    for (const r of rows){
-      if (!byClient.has(r.client)) byClient.set(r.client, []);
-      byClient.get(r.client).push(r);
+    const emails = Array.from(new Set(rows.map(r => {
+      const contact = wcContacts.find(c => ncNorm(c.client) === ncNorm(r.client));
+      const email = type === 'Supervisor' ? (contact && contact.supEmail) : (contact && contact.manEmail);
+      return email ? email.trim() : null;
+    }).filter(Boolean)));
+    if (!emails.length){
+      btn.textContent = 'No emails on file';
+      setTimeout(() => btn.textContent = defaultLabel, 1800);
+      return;
     }
-    let text = `Outstanding timesheets \u2014 Week Ending ${wcFmtFull(wcCurrentWeek)}\n\n`;
-    for (const [client, list] of byClient){
-      const contact = wcContacts.find(c => ncNorm(c.client) === ncNorm(client));
-      text += `${client}\n`;
-      for (const r of list){
-        const email = r.type === 'Supervisor' ? (contact && contact.supEmail) : (contact && contact.manEmail);
-        text += `  - ${r.position} (${r.type})${email ? ' \u2014 ' + email : ' \u2014 no contact on file'}\n`;
-      }
-      text += '\n';
-    }
+    const text = emails.join('; ');
     navigator.clipboard.writeText(text).then(() => {
-      wcCopyReminderBtn.textContent = 'Copied \u2713';
-      setTimeout(() => wcCopyReminderBtn.textContent = 'Copy reminder list', 1800);
+      btn.textContent = 'Copied \u2713';
+      setTimeout(() => btn.textContent = defaultLabel, 1800);
     }).catch(() => {
-      wcCopyReminderBtn.textContent = 'Copy failed';
-      setTimeout(() => wcCopyReminderBtn.textContent = 'Copy reminder list', 1800);
+      btn.textContent = 'Copy failed';
+      setTimeout(() => btn.textContent = defaultLabel, 1800);
     });
-  });
+  }
+  wcCopySupBtn.addEventListener('click', () => wcCopyEmailsForType('Supervisor', wcCopySupBtn, 'Copy Supervisor emails'));
+  wcCopyManBtn.addEventListener('click', () => wcCopyEmailsForType('Manual', wcCopyManBtn, 'Copy Manual emails'));
 })();
 </script>
 </body>
