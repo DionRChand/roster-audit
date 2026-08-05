@@ -8022,13 +8022,16 @@ ${body}
 
   function wcRenderGroups(){
     if (!wcCurrentWeek){ wcGroupsWrap.innerHTML = ''; return; }
-    let rows = wcTracker.filter(t => t.weekEnding === wcCurrentWeek);
+    const allRowsThisWeek = wcTracker.filter(t => t.weekEnding === wcCurrentWeek);
+    let rows = allRowsThisWeek;
     if (wcFilter === 'pending') rows = rows.filter(r => r.status !== 'complete');
     if (wcFilter === 'complete') rows = rows.filter(r => r.status === 'complete');
     if (wcSearch) rows = rows.filter(r => r.client.toLowerCase().includes(wcSearch) || r.position.toLowerCase().includes(wcSearch));
 
     if (!rows.length){
-      wcGroupsWrap.innerHTML = `<div class="empty-state">No timesheet lines match. Use "+ Add client / position" to add one for this week.</div>`;
+      wcGroupsWrap.innerHTML = allRowsThisWeek.length
+        ? `<div class="empty-state">No timesheet lines match your search/filter.</div>`
+        : `<div class="empty-state">This week is empty. Upload this week's roster on the New Client Analysis tab to fill it in automatically, or use "+ Add client / position" to add lines by hand.</div>`;
       return;
     }
 
@@ -8154,10 +8157,28 @@ ${body}
     const sunday = wcSundayFromMonday(monday);
     await wcEnsureWeek(sunday, monday);
     if (wcWeekModalPopulate.checked){
-      const activeCombos = ncRegistry
-        .filter(r => r.status === 'active')
-        .map(r => ({ client: r.client, position: r.position }));
-      await wcEnsureTrackerRows(sunday, activeCombos);
+      let activeCombos = [];
+      // Query the New Client Analysis registry directly rather than relying on its
+      // in-memory copy, in case that module hasn't finished loading yet.
+      if (wcSb){
+        try{
+          const { data, error } = await wcSb.from('client_position_registry').select('client,position,status').eq('status', 'active');
+          if (error) console.error(error);
+          else activeCombos = (data || []).map(r => ({ client: r.client, position: r.position }));
+        }catch(err){ console.error(err); }
+      }
+      if (!activeCombos.length){
+        activeCombos = ncRegistry.filter(r => r.status === 'active').map(r => ({ client: r.client, position: r.position }));
+      }
+      if (activeCombos.length){
+        await wcEnsureTrackerRows(sunday, activeCombos);
+      } else {
+        wcWeekModal.classList.add('hidden');
+        wcRenderWeekList();
+        wcSelectWeek(sunday);
+        alert('New Client Analysis doesn\'t have any active Client/Position entries yet, so there was nothing to populate this week with. Upload and confirm a roster on the New Client Analysis tab first, or use "+ Add client / position" to add entries to this week by hand.');
+        return;
+      }
     }
     wcWeekModal.classList.add('hidden');
     wcRenderWeekList();
