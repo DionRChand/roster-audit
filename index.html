@@ -7933,8 +7933,15 @@ ${body}
       const position = canon ? canon.position : r.position;
       const exists = wcTracker.some(t => t.weekEnding === weekEnding && ncNorm(t.client) === ncNorm(client) && ncNorm(t.position) === ncNorm(position));
       if (exists) continue;
-      wcTracker.push({ id: 'local-'+Date.now()+Math.random(), weekEnding, client, position, type:'Manual', status:'pending', source:'roster', completedAt:null });
-      toInsert.push({ week_ending: weekEnding, client, position, type:'Manual', status:'pending', source:'roster' });
+      // Carry forward whichever type (Supervisor/Manual) this client/position was
+      // last classified as, so it doesn't silently reset to Manual every time a
+      // new roster upload re-adds it for the following week.
+      const prior = wcTracker
+        .filter(t => ncNorm(t.client) === ncNorm(client) && ncNorm(t.position) === ncNorm(position))
+        .sort((a,b) => b.weekEnding.localeCompare(a.weekEnding))[0];
+      const type = prior ? prior.type : 'Manual';
+      wcTracker.push({ id: 'local-'+Date.now()+Math.random(), weekEnding, client, position, type, status:'pending', source:'roster', completedAt:null });
+      toInsert.push({ week_ending: weekEnding, client, position, type, status:'pending', source:'roster' });
     }
     if (wcSb && toInsert.length){
       try{
@@ -8086,7 +8093,7 @@ ${body}
         const email = r.type === 'Supervisor' ? (contact && contact.supEmail) : (contact && contact.manEmail);
         html += `<div class="wc-row ${r.status === 'complete' ? 'is-complete' : ''}">
           <div class="wc-pos">${ncEsc(r.position)}</div>
-          <span class="wc-type-chip ${r.type === 'Supervisor' ? 'supervisor' : 'manual'}">${ncEsc(r.type)}</span>
+          <span class="wc-type-chip ${r.type === 'Supervisor' ? 'supervisor' : 'manual'}" data-wctypetoggle="${ncEsc(String(r.id))}" role="button" tabindex="0" title="Click to switch to ${r.type === 'Supervisor' ? 'Manual' : 'Supervisor'}" style="cursor:pointer;">${ncEsc(r.type)}</span>
           <div class="wc-contact-email">${email ? ncEsc(email) : '<span class="muted">No contact on file</span>'}</div>
           <span class="status-pill ${r.status === 'complete' ? 'active' : 'inactive'}">${r.status === 'complete' ? 'Complete' : 'Pending'}</span>
           <div class="wc-row-actions">
@@ -8100,6 +8107,9 @@ ${body}
     wcGroupsWrap.innerHTML = html;
     wcGroupsWrap.querySelectorAll('[data-wctoggle]').forEach(btn => {
       btn.addEventListener('click', () => wcToggleComplete(btn.dataset.wctoggle));
+    });
+    wcGroupsWrap.querySelectorAll('[data-wctypetoggle]').forEach(chip => {
+      chip.addEventListener('click', () => wcToggleType(chip.dataset.wctypetoggle));
     });
     wcGroupsWrap.querySelectorAll('[data-wcrowmail]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -8141,6 +8151,24 @@ ${body}
     }
     wcRenderWeekList();
     wcSelectWeek(wcCurrentWeek);
+  }
+
+  // Lets a row be reclassified between Supervisor and Manual directly from the
+  // Weekly Clients list — needed because auto-added roster rows default to
+  // Manual and previously had no way to be corrected.
+  async function wcToggleType(id){
+    const row = wcTracker.find(t => String(t.id) === String(id));
+    if (!row) return;
+    row.type = row.type === 'Supervisor' ? 'Manual' : 'Supervisor';
+    if (wcSb && !String(row.id).startsWith('local-')){
+      try{
+        const { error } = await wcSb.from('weekly_client_tracker')
+          .update({ type: row.type })
+          .eq('id', row.id);
+        if (error) console.error(error);
+      }catch(err){ console.error(err); }
+    }
+    wcRenderGroups();
   }
 
   // ---------- sub-tabs ----------
