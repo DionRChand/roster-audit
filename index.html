@@ -2213,6 +2213,7 @@
                 <input type="text" class="search" id="wcSearchBox" placeholder="Search client or position…">
               </div>
               <div class="toolbar-right">
+                <button class="btn ghost" id="wcFixTypesBtn" title="Re-check each pending row's type against the client's saved contact">Fix types from contacts</button>
                 <button class="btn ghost" id="wcCopySupBtn">Copy Supervisor emails</button>
                 <button class="btn ghost" id="wcCopyManBtn">Copy Manual emails</button>
                 <button class="btn teal" id="wcAddClientBtn">+ Add client / position</button>
@@ -7731,6 +7732,7 @@ ${body}
   const wcStatClients = document.getElementById('wcStatClients');
   const wcStreakChip = document.getElementById('wcStreakChip');
   const wcSearchBox = document.getElementById('wcSearchBox');
+  const wcFixTypesBtn = document.getElementById('wcFixTypesBtn');
   const wcCopySupBtn = document.getElementById('wcCopySupBtn');
   const wcCopyManBtn = document.getElementById('wcCopyManBtn');
   const wcAddClientBtn = document.getElementById('wcAddClientBtn');
@@ -7918,6 +7920,19 @@ ${body}
     return { error: null };
   }
 
+  // Infers Supervisor/Manual for a client from its saved contact record, when
+  // that's unambiguous (only one of the two emails is on file). Returns null
+  // when there's nothing to go on (no contact, or both/neither email set).
+  function wcInferType(client){
+    const contact = wcContacts.find(c => ncNorm(c.client) === ncNorm(client));
+    if (!contact) return null;
+    const hasSup = !!(contact.supEmail && contact.supEmail.trim());
+    const hasMan = !!(contact.manEmail && contact.manEmail.trim());
+    if (hasSup && !hasMan) return 'Supervisor';
+    if (hasMan && !hasSup) return 'Manual';
+    return null;
+  }
+
   async function wcEnsureTrackerRows(weekEnding, rows){
     const toInsert = [];
     for (const r of rows){
@@ -7935,11 +7950,12 @@ ${body}
       if (exists) continue;
       // Carry forward whichever type (Supervisor/Manual) this client/position was
       // last classified as, so it doesn't silently reset to Manual every time a
-      // new roster upload re-adds it for the following week.
+      // new roster upload re-adds it for the following week. If it's never been
+      // classified before, try to infer it from the client's saved contact.
       const prior = wcTracker
         .filter(t => ncNorm(t.client) === ncNorm(client) && ncNorm(t.position) === ncNorm(position))
         .sort((a,b) => b.weekEnding.localeCompare(a.weekEnding))[0];
-      const type = prior ? prior.type : 'Manual';
+      const type = prior ? prior.type : (wcInferType(client) || 'Manual');
       wcTracker.push({ id: 'local-'+Date.now()+Math.random(), weekEnding, client, position, type, status:'pending', source:'roster', completedAt:null });
       toInsert.push({ week_ending: weekEnding, client, position, type, status:'pending', source:'roster' });
     }
@@ -8379,6 +8395,37 @@ ${body}
     wcContactClient.disabled = false;
     wcRenderContacts();
     wcRenderGroups();
+  });
+
+  // ---------- fix types from contacts (bulk) ----------
+  // Re-runs wcInferType against every pending row in the current week and
+  // corrects any that are unambiguous from the saved contact (e.g. a client
+  // that only has a Supervisor email on file but whose row is still marked
+  // Manual because it was auto-added before the contact existed).
+  wcFixTypesBtn.addEventListener('click', async () => {
+    if (!wcCurrentWeek) return;
+    const rows = wcTracker.filter(t => t.weekEnding === wcCurrentWeek && t.status !== 'complete');
+    const toFix = rows.filter(r => {
+      const inferred = wcInferType(r.client);
+      return inferred && inferred !== r.type;
+    });
+    if (!toFix.length){
+      wcFixTypesBtn.textContent = 'Nothing to fix \u2713';
+      setTimeout(() => wcFixTypesBtn.textContent = 'Fix types from contacts', 1800);
+      return;
+    }
+    for (const row of toFix){
+      row.type = wcInferType(row.client);
+      if (wcSb && !String(row.id).startsWith('local-')){
+        try{
+          const { error } = await wcSb.from('weekly_client_tracker').update({ type: row.type }).eq('id', row.id);
+          if (error) console.error(error);
+        }catch(err){ console.error(err); }
+      }
+    }
+    wcRenderGroups();
+    wcFixTypesBtn.textContent = `Fixed ${toFix.length} \u2713`;
+    setTimeout(() => wcFixTypesBtn.textContent = 'Fix types from contacts', 1800);
   });
 
   // ---------- copy reminder emails (Supervisor / Manual, kept separate) ----------
