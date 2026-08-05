@@ -7891,10 +7891,14 @@ ${body}
     const earliest = shiftDatesISO.slice().sort()[0];
     const weekStart = wcMondayOf(earliest);
     const weekEnding = wcSundayFromMonday(weekStart);
-    await wcEnsureWeek(weekEnding, weekStart);
-    await wcEnsureTrackerRows(weekEnding, combos.map(c => ({ client: c.client, position: c.position })));
+    const weekRes = await wcEnsureWeek(weekEnding, weekStart);
+    const rowsRes = await wcEnsureTrackerRows(weekEnding, combos.map(c => ({ client: c.client, position: c.position })));
     wcRenderWeekList();
     wcSelectWeek(weekEnding);
+    if (weekRes.error || rowsRes.error){
+      const msg = (weekRes.error && weekRes.error.message) || (rowsRes.error && rowsRes.error.message) || 'unknown error';
+      alert(`These clients are showing on the Weekly Clients tab for now, but saving them to the database failed, so they won't be here after a refresh. Details: ${msg}`);
+    }
   }
   window.wcRegisterFromRoster = wcRegisterFromRoster;
 
@@ -7906,9 +7910,10 @@ ${body}
       try{
         const { error } = await wcSb.from('weekly_client_weeks')
           .upsert([{ week_ending: weekEnding, week_start: weekStart }], { onConflict:'week_ending', ignoreDuplicates:true });
-        if (error) console.error(error);
-      }catch(err){ console.error(err); }
+        if (error){ console.error(error); return { error }; }
+      }catch(err){ console.error(err); return { error: err }; }
     }
+    return { error: null };
   }
 
   async function wcEnsureTrackerRows(weekEnding, rows){
@@ -7930,7 +7935,13 @@ ${body}
       try{
         const { error } = await wcSb.from('weekly_client_tracker')
           .upsert(toInsert, { onConflict:'week_ending,client,position', ignoreDuplicates:true });
-        if (error) console.error(error);
+        if (error){
+          // Saving to Supabase failed — keep the rows we already added locally so the
+          // person can still see and use them this session, but don't overwrite them
+          // with a re-fetch (which would come back empty and wipe what they just added).
+          console.error(error);
+          return { error };
+        }
         const { data, error: e2 } = await wcSb.from('weekly_client_tracker').select('*').eq('week_ending', weekEnding);
         if (!e2){
           wcTracker = wcTracker.filter(t => t.weekEnding !== weekEnding).concat((data||[]).map(t => ({
@@ -7938,8 +7949,9 @@ ${body}
             type: t.type || 'Manual', status: t.status || 'pending', source: t.source || 'manual', completedAt: t.completed_at || null
           })));
         }
-      }catch(err){ console.error(err); }
+      }catch(err){ console.error(err); return { error: err }; }
     }
+    return { error: null };
   }
 
   // ---------- gamified progress helpers ----------
@@ -8155,7 +8167,8 @@ ${body}
     if (!val) return;
     const monday = wcMondayOf(val);
     const sunday = wcSundayFromMonday(monday);
-    await wcEnsureWeek(sunday, monday);
+    const weekRes = await wcEnsureWeek(sunday, monday);
+    let rowsRes = { error: null };
     if (wcWeekModalPopulate.checked){
       let activeCombos = [];
       // Query the New Client Analysis registry directly rather than relying on its
@@ -8171,7 +8184,7 @@ ${body}
         activeCombos = ncRegistry.filter(r => r.status === 'active').map(r => ({ client: r.client, position: r.position }));
       }
       if (activeCombos.length){
-        await wcEnsureTrackerRows(sunday, activeCombos);
+        rowsRes = await wcEnsureTrackerRows(sunday, activeCombos);
       } else {
         wcWeekModal.classList.add('hidden');
         wcRenderWeekList();
@@ -8183,6 +8196,10 @@ ${body}
     wcWeekModal.classList.add('hidden');
     wcRenderWeekList();
     wcSelectWeek(sunday);
+    if (weekRes.error || rowsRes.error){
+      const msg = (weekRes.error && weekRes.error.message) || (rowsRes.error && rowsRes.error.message) || 'unknown error';
+      alert(`This week is showing on screen for now, but saving it to the database failed, so it won't be here after a refresh. Details: ${msg}`);
+    }
   });
 
   // ---------- add client/position (manual) ----------
@@ -8209,18 +8226,22 @@ ${body}
     if (!client || !position || !wcCurrentWeek) return;
     const local = { id: 'local-'+Date.now()+Math.random(), weekEnding: wcCurrentWeek, client, position, type, status:'pending', source:'manual', completedAt:null };
     wcTracker.push(local);
+    let saveError = null;
     if (wcSb){
       try{
         const { data, error } = await wcSb.from('weekly_client_tracker')
           .upsert([{ week_ending: wcCurrentWeek, client, position, type, status:'pending', source:'manual' }], { onConflict:'week_ending,client,position' })
           .select();
-        if (error) console.error(error);
+        if (error){ console.error(error); saveError = error; }
         else if (data && data[0]) local.id = data[0].id;
-      }catch(err){ console.error(err); }
+      }catch(err){ console.error(err); saveError = err; }
     }
     wcClientModal.classList.add('hidden');
     wcRenderWeekList();
     wcSelectWeek(wcCurrentWeek);
+    if (saveError){
+      alert(`"${position}" at "${client}" is showing on screen for now, but saving it to the database failed, so it won't be here after a refresh. Details: ${saveError.message || saveError}`);
+    }
   });
 
   // ---------- contacts ----------
