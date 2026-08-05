@@ -807,7 +807,7 @@
   .wc-client-head .wc-ch-count{ font-size:11px; color:var(--text-soft); font-weight:600; }
   .wc-client-body{ padding:4px 0; }
   .wc-row{
-    display:grid; grid-template-columns: 1fr 110px 1fr 90px 110px; gap:10px; align-items:center;
+    display:grid; grid-template-columns: 1fr 100px 1fr 85px 150px; gap:10px; align-items:center;
     padding:9px 16px; border-top:1px solid #F0F2F4; font-size:12.5px;
   }
   .wc-row:first-child{ border-top:none; }
@@ -826,6 +826,26 @@
   }
   .wc-row .wc-row-btn:hover{ border-color:var(--teal); }
   .wc-row .wc-row-btn.done{ background:#D3EFE0; border-color:#9FDAB6; color:#1E7A4C; }
+  .wc-row .wc-row-actions{ display:flex; align-items:center; gap:6px; }
+  .wc-email-btn{
+    display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; flex-shrink:0;
+    border:1.5px solid var(--line); background:#fff; border-radius:7px; cursor:pointer; transition:.15s ease;
+    color:var(--navy-deep);
+  }
+  .wc-email-btn:hover{ border-color:var(--teal); color:var(--teal); }
+  .wc-email-btn[disabled]{ opacity:.35; cursor:not-allowed; }
+  .wc-email-btn[disabled]:hover{ border-color:var(--line); color:var(--navy-deep); }
+  .wc-email-btn svg{ width:13px; height:13px; }
+  .wc-client-head .wc-ch-right{ display:flex; align-items:center; gap:8px; }
+  .wc-client-email-btn{
+    display:inline-flex; align-items:center; gap:6px; border:1.5px solid var(--line); background:#fff;
+    border-radius:7px; padding:5px 11px; font-size:11px; font-weight:700; cursor:pointer; transition:.15s ease;
+    color:var(--navy-deep);
+  }
+  .wc-client-email-btn:hover{ border-color:var(--teal); }
+  .wc-client-email-btn[disabled]{ opacity:.35; cursor:not-allowed; }
+  .wc-client-email-btn svg{ width:12px; height:12px; }
+  .wc-contact-col .wc-cc-email-row{ display:flex; align-items:center; gap:6px; }
   @media (max-width: 720px){ .wc-row{ grid-template-columns: 1fr 1fr; grid-auto-rows:auto; } }
 
   .wc-contact-card{
@@ -2227,6 +2247,10 @@
         <div class="wc-modal-field">
           <label>Week ending (Sunday)</label>
           <input type="date" id="wcWeekModalDate">
+        </div>
+        <div class="wc-modal-field" style="flex-direction:row; align-items:center; gap:8px;">
+          <input type="checkbox" id="wcWeekModalPopulate" checked style="width:auto;">
+          <label style="text-transform:none; font-weight:600; font-size:12px;" for="wcWeekModalPopulate">Populate with every active Client/Position from New Client Analysis</label>
         </div>
         <div class="wc-modal-actions">
           <button type="button" class="btn ghost" id="wcWeekModalCancel">Cancel</button>
@@ -7716,6 +7740,7 @@ ${body}
   const wcWeekModal = document.getElementById('wcWeekModal');
   const wcWeekModalDate = document.getElementById('wcWeekModalDate');
   const wcWeekModalCancel = document.getElementById('wcWeekModalCancel');
+  const wcWeekModalPopulate = document.getElementById('wcWeekModalPopulate');
   const wcWeekModalSave = document.getElementById('wcWeekModalSave');
 
   const wcClientModal = document.getElementById('wcClientModal');
@@ -7794,6 +7819,26 @@ ${body}
     return wcFmtISO(d.getUTCFullYear(), d.getUTCMonth()+1, d.getUTCDate());
   }
 
+  // ---------- email (mailto) helpers ----------
+  const WC_MAIL_ICON = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function wcMailtoHref(to, subject, body){
+    const toPart = (Array.isArray(to) ? to : [to]).filter(Boolean).join(',');
+    return `mailto:${toPart}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+  function wcOpenMailto(to, subject, body){
+    if (!to || (Array.isArray(to) && !to.filter(Boolean).length)) return;
+    window.location.href = wcMailtoHref(to, subject, body);
+  }
+  function wcRowReminderBody(client, position, type, weekEnding){
+    return `Hi,\n\nJust a friendly reminder to file the ${type.toLowerCase()} timesheet for the below, for the week ending ${wcFmtFull(weekEnding)}:\n\n- Client: ${client}\n- Position: ${position}\n\nPlease let us know if there's anything holding this up.\n\nThanks,\nDion\nChandler Personnel`;
+  }
+  function wcClientReminderBody(client, rows, weekEnding){
+    let body = `Hi,\n\nA quick reminder that the following timesheet(s) are still outstanding for ${client}, week ending ${wcFmtFull(weekEnding)}:\n\n`;
+    for (const r of rows) body += `- ${r.position} (${r.type})\n`;
+    body += `\nPlease file these as soon as you're able to.\n\nThanks,\nDion\nChandler Personnel`;
+    return body;
+  }
+
   // ---------- connect ----------
   async function wcAutoConnect(){
     try{
@@ -7870,10 +7915,16 @@ ${body}
     const toInsert = [];
     for (const r of rows){
       if (!r.client || !r.position) continue;
-      const exists = wcTracker.some(t => t.weekEnding === weekEnding && ncNorm(t.client) === ncNorm(r.client) && ncNorm(t.position) === ncNorm(r.position));
+      // Use the canonical spelling/casing from the New Client Analysis registry when this
+      // client/position is already known there, so the same client doesn't end up split
+      // across slightly different text on different weeks.
+      const canon = ncRegistry.find(nc => ncNorm(nc.client) === ncNorm(r.client) && ncNorm(nc.position) === ncNorm(r.position));
+      const client = canon ? canon.client : r.client;
+      const position = canon ? canon.position : r.position;
+      const exists = wcTracker.some(t => t.weekEnding === weekEnding && ncNorm(t.client) === ncNorm(client) && ncNorm(t.position) === ncNorm(position));
       if (exists) continue;
-      wcTracker.push({ id: 'local-'+Date.now()+Math.random(), weekEnding, client:r.client, position:r.position, type:'Manual', status:'pending', source:'roster', completedAt:null });
-      toInsert.push({ week_ending: weekEnding, client:r.client, position:r.position, type:'Manual', status:'pending', source:'roster' });
+      wcTracker.push({ id: 'local-'+Date.now()+Math.random(), weekEnding, client, position, type:'Manual', status:'pending', source:'roster', completedAt:null });
+      toInsert.push({ week_ending: weekEnding, client, position, type:'Manual', status:'pending', source:'roster' });
     }
     if (wcSb && toInsert.length){
       try{
@@ -7993,9 +8044,14 @@ ${body}
       const list = byClient.get(client).sort((a,b) => a.position.localeCompare(b.position));
       const done = list.filter(r => r.status === 'complete').length;
       const contact = wcContacts.find(c => ncNorm(c.client) === ncNorm(client));
+      const pendingForClient = list.filter(r => r.status !== 'complete');
+      const clientHasContact = pendingForClient.some(r => (r.type === 'Supervisor' ? contact && contact.supEmail : contact && contact.manEmail));
       html += `<div class="wc-client-group">
         <div class="wc-client-head">
           <div class="wc-ch-left"><h4>${ncEsc(client)}</h4><span class="wc-ch-count">${done}/${list.length} filed</span></div>
+          <div class="wc-ch-right">
+            <button type="button" class="wc-client-email-btn" data-wcclientmail="${ncEsc(client)}" ${clientHasContact ? '' : 'disabled title="No contact email on file for the outstanding items"'}>${WC_MAIL_ICON} Email reminder</button>
+          </div>
         </div>
         <div class="wc-client-body">`;
       for (const r of list){
@@ -8005,7 +8061,10 @@ ${body}
           <span class="wc-type-chip ${r.type === 'Supervisor' ? 'supervisor' : 'manual'}">${ncEsc(r.type)}</span>
           <div class="wc-contact-email">${email ? ncEsc(email) : '<span class="muted">No contact on file</span>'}</div>
           <span class="status-pill ${r.status === 'complete' ? 'active' : 'inactive'}">${r.status === 'complete' ? 'Complete' : 'Pending'}</span>
-          <button type="button" class="wc-row-btn ${r.status === 'complete' ? 'done' : ''}" data-wctoggle="${ncEsc(String(r.id))}">${r.status === 'complete' ? 'Reopen' : 'Mark complete'}</button>
+          <div class="wc-row-actions">
+            <button type="button" class="wc-email-btn" data-wcrowmail="${ncEsc(String(r.id))}" ${email ? '' : 'disabled title="No contact email on file"'} title="Email ${email ? ncEsc(email) : 'contact'}">${WC_MAIL_ICON}</button>
+            <button type="button" class="wc-row-btn ${r.status === 'complete' ? 'done' : ''}" data-wctoggle="${ncEsc(String(r.id))}">${r.status === 'complete' ? 'Reopen' : 'Mark complete'}</button>
+          </div>
         </div>`;
       }
       html += `</div></div>`;
@@ -8013,6 +8072,29 @@ ${body}
     wcGroupsWrap.innerHTML = html;
     wcGroupsWrap.querySelectorAll('[data-wctoggle]').forEach(btn => {
       btn.addEventListener('click', () => wcToggleComplete(btn.dataset.wctoggle));
+    });
+    wcGroupsWrap.querySelectorAll('[data-wcrowmail]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const row = wcTracker.find(t => String(t.id) === String(btn.dataset.wcrowmail));
+        if (!row) return;
+        const contact = wcContacts.find(c => ncNorm(c.client) === ncNorm(row.client));
+        const email = row.type === 'Supervisor' ? (contact && contact.supEmail) : (contact && contact.manEmail);
+        if (!email) return;
+        const subject = `Timesheet Reminder \u2013 ${row.client} \u2013 Week Ending ${wcFmtFull(row.weekEnding)}`;
+        wcOpenMailto(email, subject, wcRowReminderBody(row.client, row.position, row.type, row.weekEnding));
+      });
+    });
+    wcGroupsWrap.querySelectorAll('[data-wcclientmail]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const client = btn.dataset.wcclientmail;
+        const contact = wcContacts.find(c => ncNorm(c.client) === ncNorm(client));
+        const pending = wcTracker.filter(t => t.weekEnding === wcCurrentWeek && ncNorm(t.client) === ncNorm(client) && t.status !== 'complete');
+        if (!pending.length) return;
+        const emails = Array.from(new Set(pending.map(r => r.type === 'Supervisor' ? (contact && contact.supEmail) : (contact && contact.manEmail)).filter(Boolean)));
+        if (!emails.length) return;
+        const subject = `Timesheet Reminder \u2013 ${client} \u2013 Week Ending ${wcFmtFull(wcCurrentWeek)}`;
+        wcOpenMailto(emails, subject, wcClientReminderBody(client, pending, wcCurrentWeek));
+      });
     });
   }
 
@@ -8061,6 +8143,7 @@ ${body}
   // ---------- add week ----------
   wcAddWeekBtn.addEventListener('click', () => {
     wcWeekModalDate.value = '';
+    wcWeekModalPopulate.checked = true;
     wcWeekModal.classList.remove('hidden');
   });
   wcWeekModalCancel.addEventListener('click', () => wcWeekModal.classList.add('hidden'));
@@ -8070,6 +8153,12 @@ ${body}
     const monday = wcMondayOf(val);
     const sunday = wcSundayFromMonday(monday);
     await wcEnsureWeek(sunday, monday);
+    if (wcWeekModalPopulate.checked){
+      const activeCombos = ncRegistry
+        .filter(r => r.status === 'active')
+        .map(r => ({ client: r.client, position: r.position }));
+      await wcEnsureTrackerRows(sunday, activeCombos);
+    }
     wcWeekModal.classList.add('hidden');
     wcRenderWeekList();
     wcSelectWeek(sunday);
@@ -8133,12 +8222,18 @@ ${body}
           <div class="wc-contact-col">
             <span class="wc-cc-label">Supervisor</span>
             <div>${c.supName ? ncEsc(c.supName) : '<span class="muted">No name on file</span>'}</div>
-            <div class="wc-contact-email">${c.supEmail ? ncEsc(c.supEmail) : '<span class="muted">No email on file</span>'}</div>
+            <div class="wc-cc-email-row">
+              <div class="wc-contact-email">${c.supEmail ? ncEsc(c.supEmail) : '<span class="muted">No email on file</span>'}</div>
+              <button type="button" class="wc-email-btn" data-wccontactmail="${ncEsc(c.client)}" data-wcmailtype="Supervisor" ${c.supEmail ? '' : 'disabled title="No contact email on file"'} title="Email ${c.supEmail ? ncEsc(c.supEmail) : 'supervisor'}">${WC_MAIL_ICON}</button>
+            </div>
           </div>
           <div class="wc-contact-col">
             <span class="wc-cc-label">Manual</span>
             <div>${c.manName ? ncEsc(c.manName) : '<span class="muted">No name on file</span>'}</div>
-            <div class="wc-contact-email">${c.manEmail ? ncEsc(c.manEmail) : '<span class="muted">No email on file</span>'}</div>
+            <div class="wc-cc-email-row">
+              <div class="wc-contact-email">${c.manEmail ? ncEsc(c.manEmail) : '<span class="muted">No email on file</span>'}</div>
+              <button type="button" class="wc-email-btn" data-wccontactmail="${ncEsc(c.client)}" data-wcmailtype="Manual" ${c.manEmail ? '' : 'disabled title="No contact email on file"'} title="Email ${c.manEmail ? ncEsc(c.manEmail) : 'manual contact'}">${WC_MAIL_ICON}</button>
+            </div>
           </div>
         </div>
       </div>`;
@@ -8146,6 +8241,19 @@ ${body}
     wcContactsWrap.innerHTML = html;
     wcContactsWrap.querySelectorAll('[data-wceditcontact]').forEach(btn => {
       btn.addEventListener('click', () => wcOpenContactModal(btn.dataset.wceditcontact));
+    });
+    wcContactsWrap.querySelectorAll('[data-wccontactmail]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const client = btn.dataset.wccontactmail;
+        const type = btn.dataset.wcmailtype;
+        const contact = wcContacts.find(c => c.client === client);
+        if (!contact) return;
+        const email = type === 'Supervisor' ? contact.supEmail : contact.manEmail;
+        if (!email) return;
+        const subject = `Timesheets \u2013 ${client}`;
+        const body = `Hi,\n\nReaching out regarding timesheets for ${client}.\n\nThanks,\nDion\nChandler Personnel`;
+        wcOpenMailto(email, subject, body);
+      });
     });
   }
   wcContactSearchBox.addEventListener('input', wcRenderContacts);
