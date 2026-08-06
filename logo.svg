@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="shieldFill" x1="20" y1="10" x2="180" y2="196" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2C4055"/>
+      <stop offset="1" stop-color="#16212D"/>
+    </linearGradient>
+  </defs>
+
+  <!-- outer badge shield -->
+  <path d="M100,8
+           C121,8 146,20.5 173,43
+           L173,119
+           C173,157 145,184.5 100,197
+           C55,184.5 27,157 27,119
+           L27,43
+           C54,20.5 79,8 100,8 Z"
+        fill="url(#shieldFill)"/>
+
+  <!-- inner teal rim -->
+  <path d="M100,20
+           C118,20 139,30.5 161,49
+           L161,117
+           C161,149 138,172 100,184
+           C62,172 39,149 39,117
+           L39,49
+           C61,30.5 82,20 100,20 Z"
+        fill="none" stroke="#0CBBC1" stroke-width="4" opacity="0.55"/>
+
+  <!-- badge star, top notch -->
+  <path d="M100,40 L104.5,52.5 L118,53 L107.3,61 L111,73.5 L100,66 L89,73.5 L92.7,61 L82,53 L95.5,52.5 Z"
+        fill="#E8A33D"/>
+
+  <!-- verified checkmark -->
+  <path d="M62,108 L91,134 L142,72"
+        fill="none" stroke="#0CBBC1" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
