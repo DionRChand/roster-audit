@@ -1105,6 +1105,79 @@
   .recent-changes .rc-detail{ color:var(--text-soft); }
   .recent-changes .rc-old{ color:#C13D3D; }
   .recent-changes .rc-new{ color:#1E7A4C; font-weight:600; }
+
+  /* ---------- Home dashboard ---------- */
+  .home-hero{
+    position:relative; overflow:hidden; border-radius:16px; padding:38px 34px;
+    margin-bottom:26px; background:linear-gradient(135deg, var(--navy) 0%, var(--navy-deep) 100%);
+    box-shadow: var(--shadow);
+  }
+  .home-hero-glow{
+    position:absolute; inset:-40% -10% auto auto; width:420px; height:420px; border-radius:50%;
+    background:radial-gradient(circle, rgba(12,187,193,0.35) 0%, rgba(12,187,193,0) 70%);
+    pointer-events:none; animation: homeGlowDrift 9s ease-in-out infinite alternate;
+  }
+  @keyframes homeGlowDrift{
+    0%{ transform: translate(0,0) scale(1); }
+    100%{ transform: translate(-40px, 30px) scale(1.15); }
+  }
+  .home-hero-inner{ position:relative; z-index:1; max-width:640px; }
+  .home-hero-eyebrow{
+    color: var(--teal); font-size:11.5px; font-weight:700; letter-spacing:1.6px; margin-bottom:10px;
+  }
+  .home-hero-title{
+    color:#fff; font-size:30px; font-weight:700; margin:0 0 10px; letter-spacing:-.3px;
+  }
+  .home-hero-sub{ color:#B9C6D2; font-size:13.5px; line-height:1.6; margin:0; }
+
+  .home-group{ margin-bottom:28px; animation: homeFadeUp .5s ease both; }
+  .home-group:nth-of-type(2){ animation-delay:.06s; }
+  .home-group:nth-of-type(3){ animation-delay:.12s; }
+  .home-group:nth-of-type(4){ animation-delay:.18s; }
+  @keyframes homeFadeUp{
+    from{ opacity:0; transform:translateY(10px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  .home-group-title{
+    display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700;
+    color: var(--navy-deep); text-transform:uppercase; letter-spacing:.6px; margin-bottom:12px;
+  }
+  .home-group-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+
+  .home-grid{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px;
+  }
+  .home-card{
+    display:flex; align-items:flex-start; gap:12px; text-align:left;
+    background: var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:16px; cursor:pointer; font-family:inherit; width:100%;
+    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+    position:relative; overflow:hidden;
+  }
+  .home-card:hover{
+    transform: translateY(-3px); box-shadow:0 10px 24px rgba(22,33,45,0.12);
+    border-color: var(--teal);
+  }
+  .home-card:active{ transform: translateY(-1px); }
+  .home-card-icon{
+    flex:0 0 auto; width:40px; height:40px; border-radius:10px; display:flex;
+    align-items:center; justify-content:center; font-size:19px; box-shadow:0 4px 10px rgba(0,0,0,0.15);
+  }
+  .home-card-body{ flex:1; min-width:0; }
+  .home-card-title{
+    font-size:14px; font-weight:700; color: var(--navy-deep); margin-bottom:4px;
+    display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+  }
+  .home-card-desc{ font-size:12px; color: var(--text-soft); line-height:1.5; }
+  .home-card-arrow{
+    flex:0 0 auto; color: var(--teal); font-size:16px; font-weight:700; opacity:0;
+    transform:translateX(-4px); transition: all .16s ease; margin-top:2px;
+  }
+  .home-card:hover .home-card-arrow{ opacity:1; transform:translateX(0); }
+  .home-card-badge{
+    background:#F9D2D2; color:#A62727; font-size:10.5px; font-weight:800;
+    border-radius:20px; padding:1px 8px; line-height:1.5;
+  }
 </style>
 </head>
 <body>
@@ -1205,7 +1278,8 @@
   <div class="browser-chrome">
     <div class="traffic-lights"><span class="tl-red"></span><span class="tl-yellow"></span><span class="tl-green"></span></div>
     <div class="tabbar">
-      <button class="tab-btn active" data-tab="panel-roster" type="button"><span class="tab-dot"></span><span class="tab-label">Roster Audit</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn active" data-tab="panel-home" type="button"><span class="tab-dot"></span><span class="tab-label">🏠 Home</span><span class="tab-close">✕</span></button>
+      <button class="tab-btn" data-tab="panel-roster" type="button"><span class="tab-dot"></span><span class="tab-label">Roster Audit</span><span class="tab-close">✕</span></button>
       <button class="tab-btn" data-tab="panel-extractor" type="button"><span class="tab-dot"></span><span class="tab-label">Extractor</span><span class="tab-close">✕</span></button>
       <button class="tab-btn" data-tab="panel-mission" type="button"><span class="tab-dot"></span><span class="tab-label">Mission Food Compliance</span><span class="tab-close">✕</span></button>
       <button class="tab-btn" data-tab="panel-davies" type="button"><span class="tab-dot"></span><span class="tab-label">Davies Food Compliance</span><span class="tab-close">✕</span></button>
@@ -1220,7 +1294,124 @@
     </div>
   </div>
 
-  <div class="wrap tab-panel active" id="panel-roster">
+  <div class="wrap tab-panel active" id="panel-home">
+    <div class="home-hero">
+      <div class="home-hero-glow"></div>
+      <div class="home-hero-inner">
+        <div class="home-hero-eyebrow">CHANDLER ROSTER CONTROL CENTER</div>
+        <h1 class="home-hero-title">Everything in one place.</h1>
+        <p class="home-hero-sub">Pick a workspace below — each one auto-connects to <b>chandler-roster</b> and stays live in the background, so the numbers you see here are current the moment you land on the tab.</p>
+      </div>
+    </div>
+
+    <div class="home-group">
+      <div class="home-group-title"><span class="home-group-dot" style="background:#0CBBC1;"></span>Roster &amp; Payroll</div>
+      <div class="home-grid">
+        <button type="button" class="home-card" data-goto="panel-roster">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#0CBBC1,#0A9AA0);">🗓️</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Roster Audit<span class="home-card-badge" id="homeBadgeRoster" data-src="statMissing" hidden>0</span></div>
+            <div class="home-card-desc">Upload a roster export to flag missing punches, mismatched in/out times, and short shifts.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+        <button type="button" class="home-card" data-goto="panel-extractor">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#0CBBC1,#0A9AA0);">📤</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Extractor</div>
+            <div class="home-card-desc">Pull structured data out of an uploaded report for a chosen date range.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+        <button type="button" class="home-card" data-goto="panel-weekly">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#0CBBC1,#0A9AA0);">📋</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Weekly Clients<span class="home-card-badge" id="homeBadgeWeekly" data-src="wcStatPending" hidden>0</span></div>
+            <div class="home-card-desc">Track weekly timesheets plus supervisor and manual contact details per client.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="home-group">
+      <div class="home-group-title"><span class="home-group-dot" style="background:#C13D3D;"></span>Compliance &amp; Checks</div>
+      <div class="home-grid">
+        <button type="button" class="home-card" data-goto="panel-mission">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#E68A3D,#C1682A);">🍽️</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Mission Food Compliance<span class="home-card-badge" id="homeBadgeMission" data-src="msStatIncomplete" hidden>0</span></div>
+            <div class="home-card-desc">Track food-safety compliance status across the Mission workforce.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+        <button type="button" class="home-card" data-goto="panel-davies">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#E68A3D,#C1682A);">🍽️</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Davies Food Compliance<span class="home-card-badge" id="homeBadgeDavies" data-src="daStatIncomplete" hidden>0</span></div>
+            <div class="home-card-desc">Track food-safety compliance status across the Davies workforce.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+        <button type="button" class="home-card" data-goto="panel-police">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#C13D3D,#8F2323);">🛡️</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Expired Police Check<span class="home-card-badge" id="homeBadgePolice" data-src="poStatExpired" hidden>0</span></div>
+            <div class="home-card-desc">Flag casual staff whose police check has expired or was never provided.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+        <button type="button" class="home-card" data-goto="panel-goodman">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#B57A15,#8F5F0E);">📈</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Goodman Level Checks<span class="home-card-badge" id="homeBadgeGoodman" data-src="glStatPending" hidden>0</span></div>
+            <div class="home-card-desc">Check weekly paysheets for staff who've reached the next pay level.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+        <button type="button" class="home-card" data-goto="panel-driscolls">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#B57A15,#8F5F0E);">📈</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Driscolls Level Checks<span class="home-card-badge" id="homeBadgeDriscolls" hidden>0</span></div>
+            <div class="home-card-desc">Same level-check tracking for both Driscolls Australia entities.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+        <button type="button" class="home-card" data-goto="panel-licence">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#C13D3D,#8F2323);">🚚</div>
+          <div class="home-card-body">
+            <div class="home-card-title">MR &amp; FL Licence Checkup<span class="home-card-badge" id="homeBadgeLicence" data-src="lcStatExpired" hidden>0</span></div>
+            <div class="home-card-desc">Track MR/FL driver's licence expiries pulled from weekly paysheets.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+      </div>
+    </div>
+
+    <div class="home-group">
+      <div class="home-group-title"><span class="home-group-dot" style="background:#1E7A4C;"></span>Clients</div>
+      <div class="home-grid">
+        <button type="button" class="home-card" data-goto="panel-newclient">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#1E7A4C,#14603A);">🆕</div>
+          <div class="home-card-body">
+            <div class="home-card-title">New Client Analysis<span class="home-card-badge" id="homeBadgeNewclient" data-src="ncStatNewClient" hidden>0</span></div>
+            <div class="home-card-desc">Spot new clients and new positions appearing in this week's roster report.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+        <button type="button" class="home-card" data-goto="panel-risk">
+          <div class="home-card-icon" style="background:linear-gradient(135deg,#1E7A4C,#14603A);">🛡️</div>
+          <div class="home-card-body">
+            <div class="home-card-title">Risk Assessment<span class="home-card-badge" id="homeBadgeRisk" data-src="raStatOverdue" hidden>0</span></div>
+            <div class="home-card-desc">Track each client's annual risk assessment due date, colour-coded by urgency.</div>
+          </div>
+          <div class="home-card-arrow">→</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap tab-panel" id="panel-roster">
     <div class="panel-loading-overlay show" id="panel-roster-loading" data-conn="connDot">
       <div class="panel-spinner"></div>
       <div class="panel-loading-text">Loading data<span class="dot-bounce"></span><span class="dot-bounce"></span><span class="dot-bounce"></span></div>
@@ -2412,7 +2603,7 @@
 
         <div class="db-panel">
           <h3>How this works</h3>
-          <p class="sub" style="margin-bottom:0;">Each client's <b>Risk Assessment Date</b> is entered manually — click the date cell to set or change it. The <b>Due Date</b> (12 months later) and <b>Days Remaining</b> are calculated automatically, and the row colour tells you how urgent it is: grey = no date on file, red = overdue, and shades from red through amber to green as the due date gets further away. Tick <b>T Drive Check</b> once that client's folder/paperwork has been confirmed on the T drive. Remarks and everything else save automatically as you edit.</p>
+          <p class="sub" style="margin-bottom:0;">Each client's <b>Risk Assessment Date</b> is entered manually — click the date cell to set or change it. The <b>Due Date</b> (12 months later) and <b>Days Remaining</b> are calculated automatically, and the row colour tells you how urgent it is: grey = no date on file, red = overdue, and shades from red through amber to green as the due date gets further away. Tick <b>T Drive Check</b> once that client's folder/paperwork has been confirmed on the T drive. Remarks and everything else save automatically as you edit. Click <b>Mark inactive</b> on a client (e.g. one who has left, or is otherwise on hold) to stop them being tracked — they're greyed out, removed from the totals/overdue counts, and hidden from the default view. Find them again under the <b>Inactive</b> filter, and click <b>Reactivate</b> to bring them back into tracking.</p>
         </div>
       </aside>
 
@@ -2468,6 +2659,7 @@
               <div class="mchip" data-rafilter="ok">OK</div>
               <div class="mchip" data-rafilter="nodate">No date</div>
               <div class="mchip" data-rafilter="notdrive">Missing T Drive check</div>
+              <div class="mchip" data-rafilter="inactive">Inactive (<span id="raInactiveCount">0</span>)</div>
               <input type="text" class="search" id="raSearchBox" placeholder="Search client…">
             </div>
             <div class="toolbar-right">
@@ -2725,6 +2917,61 @@
     }
     new MutationObserver(sync).observe(srcDot, { attributes:true, attributeFilter:['class'] });
     if (srcLabel) new MutationObserver(sync).observe(srcLabel, { characterData:true, childList:true, subtree:true });
+    sync();
+  })();
+})();
+</script>
+<script>
+(function(){
+  // ---------- Home dashboard: card navigation ----------
+  document.querySelectorAll('.home-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const targetTab = document.querySelector(`.tab-btn[data-tab="${card.dataset.goto}"]`);
+      if (targetTab) targetTab.click();
+    });
+  });
+
+  // ---------- Home dashboard: live attention badges ----------
+  // Each badge mirrors a "num" element from its own panel, which keeps updating in the
+  // background (auto-connect fires on load regardless of which tab is visible), so the
+  // home screen always reflects current, real numbers.
+  function wireBadge(badgeId, srcId){
+    const badge = document.getElementById(badgeId);
+    const src = document.getElementById(srcId);
+    if (!badge || !src) return;
+    function sync(){
+      const n = parseInt(src.textContent, 10) || 0;
+      badge.textContent = n;
+      badge.hidden = n <= 0;
+    }
+    new MutationObserver(sync).observe(src, { characterData:true, childList:true, subtree:true });
+    sync();
+  }
+  [
+    ['homeBadgeRoster', 'statMissing'],
+    ['homeBadgeWeekly', 'wcStatPending'],
+    ['homeBadgeMission', 'msStatIncomplete'],
+    ['homeBadgeDavies', 'daStatIncomplete'],
+    ['homeBadgePolice', 'poStatExpired'],
+    ['homeBadgeGoodman', 'glStatPending'],
+    ['homeBadgeLicence', 'lcStatExpired'],
+    ['homeBadgeNewclient', 'ncStatNewClient'],
+    ['homeBadgeRisk', 'raStatOverdue']
+  ].forEach(([badgeId, srcId]) => wireBadge(badgeId, srcId));
+
+  // Driscolls has two entities (AU + Tissue Culture) — combine their pending counts.
+  (function(){
+    const badge = document.getElementById('homeBadgeDriscolls');
+    const auEl = document.getElementById('dlAuStatPending');
+    const tcEl = document.getElementById('dlTcStatPending');
+    if (!badge || !auEl || !tcEl) return;
+    function sync(){
+      const n = (parseInt(auEl.textContent, 10) || 0) + (parseInt(tcEl.textContent, 10) || 0);
+      badge.textContent = n;
+      badge.hidden = n <= 0;
+    }
+    new MutationObserver(sync).observe(auEl, { characterData:true, childList:true, subtree:true });
+    new MutationObserver(sync).observe(tcEl, { characterData:true, childList:true, subtree:true });
     sync();
   })();
 })();
@@ -8910,6 +9157,7 @@ ${body}
       riskAssessmentDate: row.risk_assessment_date ? new Date(row.risk_assessment_date + 'T00:00:00') : null,
       remarks: row.remarks || '',
       tDriveCheck: !!row.t_drive_check,
+      isActive: row.is_active === false ? false : true,
       updatedAt: row.updated_at || null
     };
   }
@@ -8936,7 +9184,7 @@ ${body}
     nodate: 'NO DATE ON FILE', overdue: 'OVERDUE', due30: 'DUE ≤30 DAYS',
     due60: 'DUE ≤60 DAYS', due90: 'DUE ≤90 DAYS', ok: 'OK'
   };
-  function raRowClass(status){ return 'row-' + status; }
+  function raRowClass(status, isActive){ return isActive === false ? 'row-inactive' : 'row-' + status; }
 
   // ---------- add client modal ----------
   function raOpenAddModal(){
@@ -8964,6 +9212,7 @@ ${body}
       riskAssessmentDate: raModalDate.value ? new Date(raModalDate.value + 'T00:00:00') : null,
       remarks: raModalRemarks.value.trim(),
       tDriveCheck: raModalTDrive.checked,
+      isActive: true,
       updatedAt: new Date().toISOString()
     };
     raAllRows.push(row);
@@ -8976,6 +9225,7 @@ ${body}
           risk_assessment_date: row.riskAssessmentDate ? row.riskAssessmentDate.toISOString().slice(0,10) : null,
           remarks: row.remarks || null,
           t_drive_check: row.tDriveCheck,
+          is_active: row.isActive,
           updated_at: row.updatedAt
         }], { onConflict: 'client' });
         if (error) throw error;
@@ -8993,6 +9243,27 @@ ${body}
     if (raSb){
       try{
         const { error } = await raSb.from('risk_assessments').delete().eq('client', clientName);
+        if (error) throw error;
+      }catch(err){ console.error(err); }
+    }
+  }
+
+  // ---------- mark inactive / reactivate (inactive clients are excluded from tracking & stats) ----------
+  async function raToggleActive(clientName){
+    const row = raAllRows.find(r => r.client === clientName);
+    if (!row) return;
+    row.isActive = row.isActive === false ? true : false;
+    raRender();
+    if (raSb){
+      try{
+        const { error } = await raSb.from('risk_assessments').upsert({
+          client: row.client,
+          risk_assessment_date: row.riskAssessmentDate ? row.riskAssessmentDate.toISOString().slice(0,10) : null,
+          remarks: row.remarks || null,
+          t_drive_check: !!row.tDriveCheck,
+          is_active: row.isActive !== false,
+          updated_at: new Date().toISOString()
+        }, { onConflict:'client' });
         if (error) throw error;
       }catch(err){ console.error(err); }
     }
@@ -9018,6 +9289,7 @@ ${body}
         risk_assessment_date: row.riskAssessmentDate ? row.riskAssessmentDate.toISOString().slice(0,10) : null,
         remarks: row.remarks || null,
         t_drive_check: !!row.tDriveCheck,
+        is_active: row.isActive !== false,
         updated_at: new Date().toISOString()
       };
       const { error } = await raSb.from('risk_assessments').upsert(payload, { onConflict:'client' });
@@ -9035,7 +9307,7 @@ ${body}
     const dueDate = raDueDate(row.riskAssessmentDate);
     const days = raDaysRemaining(dueDate);
     const status = raStatus(row.riskAssessmentDate, days);
-    tr.className = raRowClass(status);
+    tr.className = raRowClass(status, row.isActive);
     const dueCell = tr.querySelector('[data-ra-due]');
     if (dueCell) dueCell.textContent = dueDate ? dueDate.toLocaleDateString() : '—';
     const daysCell = tr.querySelector('[data-ra-days]');
@@ -9082,8 +9354,10 @@ ${body}
     }
   });
   raTableWrap.addEventListener('click', e => {
-    const btn = e.target.closest('[data-ra-remove]');
-    if (btn) raRemoveClient(btn.dataset.raRemove);
+    const removeBtn = e.target.closest('[data-ra-remove]');
+    if (removeBtn){ raRemoveClient(removeBtn.dataset.raRemove); return; }
+    const toggleBtn = e.target.closest('[data-ra-toggle-active]');
+    if (toggleBtn){ raToggleActive(toggleBtn.dataset.raToggleActive); return; }
   });
 
   // ---------- rendering ----------
@@ -9107,12 +9381,15 @@ ${body}
       return { r, dueDate, days, status: raStatus(r.riskAssessmentDate, days) };
     });
 
-    const total = computed.length;
-    const overdueCount = computed.filter(c => c.status === 'overdue').length;
-    const due30Count = computed.filter(c => c.status === 'due30').length;
-    const due60Count = computed.filter(c => c.status === 'due60').length;
-    const okCount = computed.filter(c => c.status === 'ok').length;
-    const noDateCount = computed.filter(c => c.status === 'nodate').length;
+    // stats only count active (tracked) clients — inactive clients are excluded
+    const activeComputed = computed.filter(c => c.r.isActive !== false);
+    const inactiveCount = computed.length - activeComputed.length;
+    const total = activeComputed.length;
+    const overdueCount = activeComputed.filter(c => c.status === 'overdue').length;
+    const due30Count = activeComputed.filter(c => c.status === 'due30').length;
+    const due60Count = activeComputed.filter(c => c.status === 'due60').length;
+    const okCount = activeComputed.filter(c => c.status === 'ok').length;
+    const noDateCount = activeComputed.filter(c => c.status === 'nodate').length;
 
     document.getElementById('raStatTotal').textContent = total;
     document.getElementById('raStatOverdue').textContent = overdueCount;
@@ -9120,9 +9397,12 @@ ${body}
     document.getElementById('raStatDue60').textContent = due60Count;
     document.getElementById('raStatOk').textContent = okCount;
     document.getElementById('raStatNoDate').textContent = noDateCount;
+    document.getElementById('raInactiveCount').textContent = inactiveCount;
 
     let filtered = computed.filter(c => {
-      if (raCurrentFilter === 'all') return true;
+      if (raCurrentFilter === 'all') return c.r.isActive !== false;
+      if (raCurrentFilter === 'inactive') return c.r.isActive === false;
+      if (c.r.isActive === false) return false;
       if (raCurrentFilter === 'notdrive') return !c.r.tDriveCheck;
       return c.status === raCurrentFilter;
     });
@@ -9143,24 +9423,28 @@ ${body}
 
     for (const { r, dueDate, days, status } of filtered){
       const dateInputVal = r.riskAssessmentDate ? r.riskAssessmentDate.toISOString().slice(0,10) : '';
-      html += `<tr class="${raRowClass(status)}" data-raid="${raEsc(r.client)}">
-        <td>${raEsc(r.client)}</td>
+      const isInactive = r.isActive === false;
+      html += `<tr class="${raRowClass(status, r.isActive)}" data-raid="${raEsc(r.client)}">
+        <td>${raEsc(r.client)}${isInactive ? ' <span class="status-pill inactive" style="margin-left:6px;">INACTIVE</span>' : ''}</td>
         <td class="pc-editable">
-          <input type="date" class="pc-date-input ra-field" data-client="${raEsc(r.client)}" data-field="riskAssessmentDate" value="${dateInputVal}">
+          <input type="date" class="pc-date-input ra-field" data-client="${raEsc(r.client)}" data-field="riskAssessmentDate" value="${dateInputVal}" ${isInactive ? 'disabled' : ''}>
           <div class="cell-save-badge" data-badge></div>
         </td>
         <td class="pc-auto" data-ra-due>${dueDate ? dueDate.toLocaleDateString() : '—'}</td>
         <td class="pc-auto" data-ra-days>${days === null ? '—' : days}</td>
         <td data-ra-status><span class="status-pill ${status}">${RA_STATUS_LABEL[status]}</span></td>
         <td class="pc-editable po-approve-cell">
-          <input type="checkbox" class="ra-field" data-client="${raEsc(r.client)}" data-field="tDriveCheck" ${r.tDriveCheck ? 'checked' : ''}>
+          <input type="checkbox" class="ra-field" data-client="${raEsc(r.client)}" data-field="tDriveCheck" ${r.tDriveCheck ? 'checked' : ''} ${isInactive ? 'disabled' : ''}>
           <div class="cell-save-badge" data-badge></div>
         </td>
         <td class="pc-editable">
-          <input type="text" class="remarks-input ra-field" data-client="${raEsc(r.client)}" data-field="remarks" placeholder="Add a note…" value="${raEsc(r.remarks)}">
+          <input type="text" class="remarks-input ra-field" data-client="${raEsc(r.client)}" data-field="remarks" placeholder="Add a note…" value="${raEsc(r.remarks)}" ${isInactive ? 'disabled' : ''}>
           <div class="cell-save-badge" data-badge></div>
         </td>
-        <td><button type="button" class="btn ghost" style="padding:5px 10px; font-size:11px;" data-ra-remove="${raEsc(r.client)}">Remove</button></td>
+        <td style="white-space:nowrap;">
+          <button type="button" class="btn ghost" style="padding:5px 10px; font-size:11px;" data-ra-toggle-active="${raEsc(r.client)}">${isInactive ? 'Reactivate' : 'Mark inactive'}</button>
+          <button type="button" class="btn ghost" style="padding:5px 10px; font-size:11px;" data-ra-remove="${raEsc(r.client)}">Remove</button>
+        </td>
       </tr>`;
     }
     html += `</tbody></table>`;
