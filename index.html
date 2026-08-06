@@ -6,6 +6,17 @@
 <title>Chandler Compliance Hub</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+  // Single shared Supabase client, created as early as possible so every
+  // section of the app (Extractor, License Checkup, Weekly Client Tracker, etc.)
+  // can rely on window.authClient existing before their own scripts run.
+  // Creating more than one client for the same project caused the
+  // "Multiple GoTrueClient instances" warning and race-condition errors.
+  window.authClient = window.supabase.createClient(
+    'https://xjfzkmqtdcealdlaekyb.supabase.co',
+    'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33'
+  );
+</script>
 <style>
   :root{
     --navy: #1F2E3F;
@@ -3142,10 +3153,7 @@
   // source, unlike the earlier client-side-only version.
   // Access to data still depends on Row Level Security policies on your Supabase tables —
   // this only controls who can open the app UI.
-  const SUPABASE_URL = 'https://xjfzkmqtdcealdlaekyb.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_RlzxZp0ZNqYNjSzSczy4OA_Oy-LYi33';
-  const authClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-  window.authClient = authClient; // exposed so other tabs/sections can reuse the same session
+  const authClient = window.authClient; // created once at the top of the page, shared by every section
 
   const loginScreen = document.getElementById('loginScreen');
   const appShell = document.getElementById('appShell');
@@ -8148,7 +8156,7 @@ ${body}
   // ---------- connect ----------
   async function wcAutoConnect(){
     try{
-      const client = window.supabase.createClient(WC_SUPABASE_URL, WC_SUPABASE_KEY);
+      const client = window.authClient;
       const { error } = await client.from('weekly_client_tracker').select('id').limit(1);
       if (error) throw error;
       wcSb = client;
