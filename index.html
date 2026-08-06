@@ -1141,7 +1141,7 @@
   }
   .home-hero-sub{ color:#B9C6D2; font-size:13.5px; line-height:1.6; margin:0; }
 
-  .home-group{ margin-bottom:28px; animation: homeFadeUp .5s ease both; }
+  .home-group{ margin-bottom:30px; animation: homeFadeUp .5s ease both; }
   .home-group:nth-of-type(2){ animation-delay:.06s; }
   .home-group:nth-of-type(3){ animation-delay:.12s; }
   .home-group:nth-of-type(4){ animation-delay:.18s; }
@@ -1151,44 +1151,55 @@
   }
   .home-group-title{
     display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700;
-    color: var(--navy-deep); text-transform:uppercase; letter-spacing:.6px; margin-bottom:12px;
+    color: var(--navy-deep); text-transform:uppercase; letter-spacing:.6px; margin-bottom:14px;
   }
   .home-group-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
 
+  /* ---------- Springboard: iPad-home-screen-inspired icon grid ---------- */
+  .home-springboard{
+    background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0));
+    border-radius:20px; padding:26px 22px 6px;
+  }
   .home-grid{
-    display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px;
+    display:flex; flex-wrap:wrap; gap:22px 14px;
   }
   .home-card{
-    display:flex; align-items:flex-start; gap:12px; text-align:left;
-    background: var(--card); border:1px solid var(--line); border-radius:12px;
-    padding:16px; cursor:pointer; font-family:inherit; width:100%;
-    transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
-    position:relative; overflow:hidden;
+    display:flex; flex-direction:column; align-items:center; gap:8px;
+    width:88px; background:none; border:none; padding:2px; margin:0;
+    cursor:pointer; font-family:inherit; -webkit-tap-highlight-color:transparent;
   }
-  .home-card:hover{
-    transform: translateY(-3px); box-shadow:0 10px 24px rgba(22,33,45,0.12);
-    border-color: var(--teal);
-  }
-  .home-card:active{ transform: translateY(-1px); }
+  .home-icon-wrap{ position:relative; }
   .home-card-icon{
-    flex:0 0 auto; width:40px; height:40px; border-radius:10px; display:flex;
-    align-items:center; justify-content:center; font-size:19px; box-shadow:0 4px 10px rgba(0,0,0,0.15);
+    width:60px; height:60px; border-radius:16px; display:flex;
+    align-items:center; justify-content:center; font-size:27px;
+    box-shadow:0 3px 8px rgba(22,33,45,0.22), inset 0 1px 0 rgba(255,255,255,0.25);
+    transition: transform .15s cubic-bezier(.34,1.56,.64,1), box-shadow .15s ease;
   }
-  .home-card-body{ flex:1; min-width:0; }
-  .home-card-title{
-    font-size:14px; font-weight:700; color: var(--navy-deep); margin-bottom:4px;
-    display:flex; align-items:center; gap:7px; flex-wrap:wrap;
+  .home-card:hover .home-card-icon{
+    transform: translateY(-3px) scale(1.06);
+    box-shadow:0 8px 16px rgba(22,33,45,0.28), inset 0 1px 0 rgba(255,255,255,0.25);
   }
-  .home-card-desc{ font-size:12px; color: var(--text-soft); line-height:1.5; }
-  .home-card-arrow{
-    flex:0 0 auto; color: var(--teal); font-size:16px; font-weight:700; opacity:0;
-    transform:translateX(-4px); transition: all .16s ease; margin-top:2px;
+  .home-card:active .home-card-icon{
+    transform: scale(0.88);
+    transition-duration: .08s;
   }
-  .home-card:hover .home-card-arrow{ opacity:1; transform:translateX(0); }
+  .home-card-label{
+    font-size:11.5px; font-weight:600; color: var(--navy-deep); text-align:center;
+    line-height:1.3; max-width:88px;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+  }
   .home-card-badge{
-    background:#F9D2D2; color:#A62727; font-size:10.5px; font-weight:800;
-    border-radius:20px; padding:1px 8px; line-height:1.5;
+    position:absolute; top:-5px; right:-5px; z-index:1;
+    min-width:19px; height:19px; padding:0 5px; box-sizing:border-box;
+    background:#FF3B30; color:#fff; font-size:10.5px; font-weight:800;
+    line-height:19px; text-align:center;
+    border-radius:999px; border:2px solid var(--paper);
+    box-shadow:0 1px 3px rgba(0,0,0,0.3);
   }
+
+  .home-dots{ display:flex; justify-content:center; gap:7px; padding:14px 0 6px; }
+  .home-dot{ width:6px; height:6px; border-radius:50%; background:#C7D0D8; }
+  .home-dot.active{ background: var(--teal); width:14px; border-radius:4px; transition:all .2s ease; }
 
   /* ---------- Persistent iPhone-style home button ---------- */
   .ios-home-btn{
@@ -1342,114 +1353,110 @@
       <div class="home-hero-inner">
         <div class="home-hero-eyebrow">CHANDLER ROSTER CONTROL CENTER</div>
         <h1 class="home-hero-title">Everything in one place.</h1>
-        <p class="home-hero-sub">Pick a workspace below — each one auto-connects to <b>chandler-roster</b> and stays live in the background, so the numbers you see here are current the moment you land on the tab.</p>
+        <p class="home-hero-sub">Tap a tile to jump in — each one auto-connects to <b>chandler-roster</b> and stays live in the background, so the badges you see here are current the moment you land on the tab.</p>
       </div>
     </div>
 
-    <div class="home-group">
-      <div class="home-group-title"><span class="home-group-dot" style="background:#0CBBC1;"></span>Roster &amp; Payroll</div>
-      <div class="home-grid">
-        <button type="button" class="home-card" data-goto="panel-roster">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#0CBBC1,#0A9AA0);">🗓️</div>
-          <div class="home-card-body">
-            <div class="home-card-title">Roster Audit<span class="home-card-badge" id="homeBadgeRoster" data-src="statMissing" hidden>0</span></div>
-            <div class="home-card-desc">Upload a roster export to flag missing punches, mismatched in/out times, and short shifts.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-        <button type="button" class="home-card" data-goto="panel-extractor">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#0CBBC1,#0A9AA0);">📤</div>
-          <div class="home-card-body">
-            <div class="home-card-title">Extractor</div>
-            <div class="home-card-desc">Pull structured data out of an uploaded report for a chosen date range.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-        <button type="button" class="home-card" data-goto="panel-weekly">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#0CBBC1,#0A9AA0);">📋</div>
-          <div class="home-card-body">
-            <div class="home-card-title">Weekly Clients<span class="home-card-badge" id="homeBadgeWeekly" data-src="wcStatPending" hidden>0</span></div>
-            <div class="home-card-desc">Track weekly timesheets plus supervisor and manual contact details per client.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
+    <div class="home-springboard">
+
+      <div class="home-group">
+        <div class="home-group-title"><span class="home-group-dot" style="background:#0CBBC1;"></span>Roster &amp; Payroll</div>
+        <div class="home-grid">
+          <button type="button" class="home-card" data-goto="panel-roster" title="Upload a roster export to flag missing punches, mismatched in/out times, and short shifts.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#0CBBC1,#0A9AA0);">🗓️</div>
+              <span class="home-card-badge" id="homeBadgeRoster" data-src="statMissing" hidden>0</span>
+            </div>
+            <div class="home-card-label">Roster Audit</div>
+          </button>
+          <button type="button" class="home-card" data-goto="panel-extractor" title="Pull structured data out of an uploaded report for a chosen date range.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#0CBBC1,#0A9AA0);">📤</div>
+            </div>
+            <div class="home-card-label">Extractor</div>
+          </button>
+          <button type="button" class="home-card" data-goto="panel-weekly" title="Track weekly timesheets plus supervisor and manual contact details per client.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#0CBBC1,#0A9AA0);">📋</div>
+              <span class="home-card-badge" id="homeBadgeWeekly" data-src="wcStatPending" hidden>0</span>
+            </div>
+            <div class="home-card-label">Weekly Clients</div>
+          </button>
+        </div>
       </div>
+
+      <div class="home-group">
+        <div class="home-group-title"><span class="home-group-dot" style="background:#C13D3D;"></span>Compliance &amp; Checks</div>
+        <div class="home-grid">
+          <button type="button" class="home-card" data-goto="panel-mission" title="Track food-safety compliance status across the Mission workforce.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#E68A3D,#C1682A);">🍽️</div>
+              <span class="home-card-badge" id="homeBadgeMission" data-src="msStatIncomplete" hidden>0</span>
+            </div>
+            <div class="home-card-label">Mission Food Compliance</div>
+          </button>
+          <button type="button" class="home-card" data-goto="panel-davies" title="Track food-safety compliance status across the Davies workforce.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#E68A3D,#C1682A);">🍽️</div>
+              <span class="home-card-badge" id="homeBadgeDavies" data-src="daStatIncomplete" hidden>0</span>
+            </div>
+            <div class="home-card-label">Davies Food Compliance</div>
+          </button>
+          <button type="button" class="home-card" data-goto="panel-police" title="Flag casual staff whose police check has expired or was never provided.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#C13D3D,#8F2323);">🛡️</div>
+              <span class="home-card-badge" id="homeBadgePolice" data-src="poStatExpired" hidden>0</span>
+            </div>
+            <div class="home-card-label">Expired Police Check</div>
+          </button>
+          <button type="button" class="home-card" data-goto="panel-goodman" title="Check weekly paysheets for staff who've reached the next pay level.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#B57A15,#8F5F0E);">📈</div>
+              <span class="home-card-badge" id="homeBadgeGoodman" data-src="glStatPending" hidden>0</span>
+            </div>
+            <div class="home-card-label">Goodman Level Checks</div>
+          </button>
+          <button type="button" class="home-card" data-goto="panel-driscolls" title="Same level-check tracking for both Driscolls Australia entities.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#B57A15,#8F5F0E);">📈</div>
+              <span class="home-card-badge" id="homeBadgeDriscolls" hidden>0</span>
+            </div>
+            <div class="home-card-label">Driscolls Level Checks</div>
+          </button>
+          <button type="button" class="home-card" data-goto="panel-licence" title="Track MR/FL driver's licence expiries pulled from weekly paysheets.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#C13D3D,#8F2323);">🚚</div>
+              <span class="home-card-badge" id="homeBadgeLicence" data-src="lcStatExpired" hidden>0</span>
+            </div>
+            <div class="home-card-label">MR &amp; FL Licence Checkup</div>
+          </button>
+        </div>
+      </div>
+
+      <div class="home-group">
+        <div class="home-group-title"><span class="home-group-dot" style="background:#1E7A4C;"></span>Clients</div>
+        <div class="home-grid">
+          <button type="button" class="home-card" data-goto="panel-newclient" title="Spot new clients and new positions appearing in this week's roster report.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#1E7A4C,#14603A);">🆕</div>
+              <span class="home-card-badge" id="homeBadgeNewclient" data-src="ncStatNewClient" hidden>0</span>
+            </div>
+            <div class="home-card-label">New Client Analysis</div>
+          </button>
+          <button type="button" class="home-card" data-goto="panel-risk" title="Track each client's annual risk assessment due date, colour-coded by urgency.">
+            <div class="home-icon-wrap">
+              <div class="home-card-icon" style="background:linear-gradient(135deg,#1E7A4C,#14603A);">🛡️</div>
+              <span class="home-card-badge" id="homeBadgeRisk" data-src="raStatOverdue" hidden>0</span>
+            </div>
+            <div class="home-card-label">Risk Assessment</div>
+          </button>
+        </div>
+      </div>
+
     </div>
 
-    <div class="home-group">
-      <div class="home-group-title"><span class="home-group-dot" style="background:#C13D3D;"></span>Compliance &amp; Checks</div>
-      <div class="home-grid">
-        <button type="button" class="home-card" data-goto="panel-mission">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#E68A3D,#C1682A);">🍽️</div>
-          <div class="home-card-body">
-            <div class="home-card-title">Mission Food Compliance<span class="home-card-badge" id="homeBadgeMission" data-src="msStatIncomplete" hidden>0</span></div>
-            <div class="home-card-desc">Track food-safety compliance status across the Mission workforce.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-        <button type="button" class="home-card" data-goto="panel-davies">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#E68A3D,#C1682A);">🍽️</div>
-          <div class="home-card-body">
-            <div class="home-card-title">Davies Food Compliance<span class="home-card-badge" id="homeBadgeDavies" data-src="daStatIncomplete" hidden>0</span></div>
-            <div class="home-card-desc">Track food-safety compliance status across the Davies workforce.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-        <button type="button" class="home-card" data-goto="panel-police">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#C13D3D,#8F2323);">🛡️</div>
-          <div class="home-card-body">
-            <div class="home-card-title">Expired Police Check<span class="home-card-badge" id="homeBadgePolice" data-src="poStatExpired" hidden>0</span></div>
-            <div class="home-card-desc">Flag casual staff whose police check has expired or was never provided.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-        <button type="button" class="home-card" data-goto="panel-goodman">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#B57A15,#8F5F0E);">📈</div>
-          <div class="home-card-body">
-            <div class="home-card-title">Goodman Level Checks<span class="home-card-badge" id="homeBadgeGoodman" data-src="glStatPending" hidden>0</span></div>
-            <div class="home-card-desc">Check weekly paysheets for staff who've reached the next pay level.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-        <button type="button" class="home-card" data-goto="panel-driscolls">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#B57A15,#8F5F0E);">📈</div>
-          <div class="home-card-body">
-            <div class="home-card-title">Driscolls Level Checks<span class="home-card-badge" id="homeBadgeDriscolls" hidden>0</span></div>
-            <div class="home-card-desc">Same level-check tracking for both Driscolls Australia entities.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-        <button type="button" class="home-card" data-goto="panel-licence">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#C13D3D,#8F2323);">🚚</div>
-          <div class="home-card-body">
-            <div class="home-card-title">MR &amp; FL Licence Checkup<span class="home-card-badge" id="homeBadgeLicence" data-src="lcStatExpired" hidden>0</span></div>
-            <div class="home-card-desc">Track MR/FL driver's licence expiries pulled from weekly paysheets.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-      </div>
-    </div>
-
-    <div class="home-group">
-      <div class="home-group-title"><span class="home-group-dot" style="background:#1E7A4C;"></span>Clients</div>
-      <div class="home-grid">
-        <button type="button" class="home-card" data-goto="panel-newclient">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#1E7A4C,#14603A);">🆕</div>
-          <div class="home-card-body">
-            <div class="home-card-title">New Client Analysis<span class="home-card-badge" id="homeBadgeNewclient" data-src="ncStatNewClient" hidden>0</span></div>
-            <div class="home-card-desc">Spot new clients and new positions appearing in this week's roster report.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-        <button type="button" class="home-card" data-goto="panel-risk">
-          <div class="home-card-icon" style="background:linear-gradient(135deg,#1E7A4C,#14603A);">🛡️</div>
-          <div class="home-card-body">
-            <div class="home-card-title">Risk Assessment<span class="home-card-badge" id="homeBadgeRisk" data-src="raStatOverdue" hidden>0</span></div>
-            <div class="home-card-desc">Track each client's annual risk assessment due date, colour-coded by urgency.</div>
-          </div>
-          <div class="home-card-arrow">→</div>
-        </button>
-      </div>
+    <div class="home-dots">
+      <span class="home-dot active"></span><span class="home-dot"></span><span class="home-dot"></span>
     </div>
   </div>
 
