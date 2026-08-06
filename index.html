@@ -144,6 +144,10 @@
   }
   .icon-btn:hover{ background: rgba(225,91,91,0.25); border-color: rgba(225,91,91,0.5); }
   .icon-btn:active{ transform: scale(0.92); }
+  #refreshAllBtn:hover{ background: rgba(45,166,153,0.25); border-color: rgba(45,166,153,0.5); }
+  #refreshAllBtn:disabled{ cursor:default; opacity:.7; }
+  #refreshAllBtn.spinning{ animation: refresh-spin .8s linear infinite; }
+  @keyframes refresh-spin{ from{ transform:rotate(0deg); } to{ transform:rotate(360deg); } }
 
   /* ---------- Google-Chrome-style browser window chrome + tabs ---------- */
   .browser-chrome{
@@ -1194,6 +1198,7 @@
       <span class="battery"><span class="cell"></span><span class="cell"></span><span class="cell"></span></span>
       <span class="srv-label" id="serverStatusLabel">Charging</span>
     </button>
+    <button type="button" class="icon-btn" id="refreshAllBtn" title="Refresh this tab's data">🔄</button>
     <button type="button" class="icon-btn" id="signOutBtn" title="Sign out">🚪</button>
   </div>
 
@@ -2615,6 +2620,7 @@
             </div>
             <div class="toolbar-right">
               <button class="btn ghost" id="lcResetBtn">Upload another file</button>
+              <button class="btn ghost" id="lcExportWeBtn">Export by WE</button>
               <button class="btn ghost" id="lcExportCsvBtn">Export CSV</button>
               <button class="btn teal" id="lcExportColorBtn">Export colored report (.xls)</button>
             </div>
@@ -2622,6 +2628,28 @@
 
           <div id="lcTableWrap"></div>
           <div class="footer-note" id="lcFooterNote"></div>
+        </div>
+
+        <div id="lcWeModal" class="wc-modal-overlay hidden">
+          <div class="wc-modal-box">
+            <h3>Export by week ending</h3>
+            <div class="wc-modal-field">
+              <label>Week ending (WE)</label>
+              <select id="lcWeSelect"><option value="">Loading week endings…</option></select>
+            </div>
+            <div class="wc-modal-field">
+              <label>Format</label>
+              <select id="lcWeFormatSelect">
+                <option value="csv">CSV</option>
+                <option value="xls">Colored report (.xls)</option>
+              </select>
+            </div>
+            <p class="sub" id="lcWeModalNote" style="margin:0 0 4px;"></p>
+            <div class="wc-modal-actions">
+              <button type="button" class="btn ghost" id="lcWeModalCancel">Cancel</button>
+              <button type="button" class="btn teal" id="lcWeModalExport">Export</button>
+            </div>
+          </div>
         </div>
 
       </main>
@@ -2645,6 +2673,39 @@
       if (btn.dataset.tab === 'panel-extractor' && typeof window.exRefresh === 'function') window.exRefresh();
     });
   });
+
+  // ---------- Topbar refresh button: reloads whichever tab is currently open ----------
+  const REFRESH_BY_TAB = {
+    'panel-roster':     'rosterReconnect',
+    'panel-extractor':  'exReconnect',
+    'panel-mission':    'msReconnect',
+    'panel-davies':     'daReconnect',
+    'panel-police':     'poReconnect',
+    'panel-goodman':    'glReconnect',
+    'panel-driscolls':  'dlReconnect',
+    'panel-newclient':  'ncReconnect',
+    'panel-weekly':     'wcReconnect',
+    'panel-risk':       'raReconnect',
+    'panel-licence':    'lcReconnect'
+  };
+  const refreshAllBtn = document.getElementById('refreshAllBtn');
+  if (refreshAllBtn){
+    refreshAllBtn.addEventListener('click', async () => {
+      const activeBtn = document.querySelector('.tab-btn.active');
+      const tabId = activeBtn ? activeBtn.dataset.tab : null;
+      const fnName = tabId ? REFRESH_BY_TAB[tabId] : null;
+      const fn = fnName ? window[fnName] : null;
+      if (typeof fn !== 'function') return;
+      refreshAllBtn.disabled = true;
+      refreshAllBtn.classList.add('spinning');
+      try{
+        await fn();
+      } finally {
+        refreshAllBtn.disabled = false;
+        refreshAllBtn.classList.remove('spinning');
+      }
+    });
+  }
 
   // ---------- Topbar "server battery" pill: mirrors the main DB connection state ----------
   (function(){
@@ -9246,6 +9307,14 @@ ${body}
   const lcNewTrackedInput = document.getElementById('lcNewTrackedInput');
   const lcAddTrackedBtn = document.getElementById('lcAddTrackedBtn');
 
+  const lcExportWeBtn = document.getElementById('lcExportWeBtn');
+  const lcWeModal = document.getElementById('lcWeModal');
+  const lcWeSelect = document.getElementById('lcWeSelect');
+  const lcWeFormatSelect = document.getElementById('lcWeFormatSelect');
+  const lcWeModalNote = document.getElementById('lcWeModalNote');
+  const lcWeModalCancel = document.getElementById('lcWeModalCancel');
+  const lcWeModalExport = document.getElementById('lcWeModalExport');
+
   let lcSb = null;
   let lcAllRows = [];              // canonical rows, mirrors license_checkup
   let lcTrackedPositions = new Map(); // normPosition -> display label
@@ -9965,6 +10034,131 @@ ${body}
     const stamp = new Date().toISOString().slice(0,10);
     a.href = url;
     a.download = `licence-checkup-colored-${stamp}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ---------- export by WE (week ending) ----------
+  function lcFmtWeLabel(iso){
+    const d = lcParseDate(iso);
+    if (!d) return iso;
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  async function lcOpenWeModal(){
+    lcWeModal.classList.remove('hidden');
+    lcWeModalNote.textContent = '';
+    lcWeFormatSelect.value = 'csv';
+    lcWeSelect.innerHTML = '<option value="">Loading week endings…</option>';
+    if (!lcSb){
+      lcWeSelect.innerHTML = '<option value="">Not connected to database</option>';
+      return;
+    }
+    try{
+      const { data, error } = await lcSb.from('license_checkup_weeks').select('we_date');
+      if (error) throw error;
+      const uniqueDates = Array.from(new Set((data || []).map(r => r.we_date))).sort().reverse();
+      if (!uniqueDates.length){
+        lcWeSelect.innerHTML = '<option value="">No weeks recorded yet</option>';
+        return;
+      }
+      lcWeSelect.innerHTML = uniqueDates.map(d => `<option value="${lcEsc(d)}">${lcEsc(lcFmtWeLabel(d))}</option>`).join('');
+    }catch(err){
+      console.error(err);
+      lcWeSelect.innerHTML = '<option value="">Couldn\u2019t load week endings</option>';
+    }
+  }
+  lcExportWeBtn.addEventListener('click', lcOpenWeModal);
+  lcWeModalCancel.addEventListener('click', () => lcWeModal.classList.add('hidden'));
+
+  async function lcExportByWe(){
+    const weDate = lcWeSelect.value;
+    if (!weDate){ lcWeModalNote.textContent = 'Pick a week ending first.'; return; }
+    if (!lcSb){ lcWeModalNote.textContent = 'Not connected to database.'; return; }
+    lcWeModalExport.disabled = true;
+    lcWeModalNote.textContent = 'Fetching…';
+    try{
+      const { data, error } = await lcSb.from('license_checkup_weeks').select('employee_id,position').eq('we_date', weDate);
+      if (error) throw error;
+      if (!data || !data.length){
+        lcWeModalNote.textContent = 'No drivers recorded for that week.';
+        return;
+      }
+      const byId = new Map(lcAllRows.map(r => [r.employeeId, r]));
+      const rows = data.map(wr => {
+        const master = byId.get(wr.employee_id) || {};
+        const status = lcStatus(master.expireDate);
+        const days = lcDaysRemaining(master.expireDate);
+        return {
+          employeeId: wr.employee_id,
+          name: master.name || '',
+          position: wr.position || master.position || '',
+          expireDate: master.expireDate || '',
+          days: days === null ? '' : days,
+          status: LC_STATUS_LABEL[status],
+          statusKey: status,
+          weDate
+        };
+      }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+      if (lcWeFormatSelect.value === 'xls') lcExportWeColored(rows, weDate);
+      else lcExportWeCsv(rows, weDate);
+
+      lcWeModal.classList.add('hidden');
+    }catch(err){
+      console.error(err);
+      lcWeModalNote.textContent = 'Something went wrong fetching that week.';
+    }finally{
+      lcWeModalExport.disabled = false;
+    }
+  }
+  lcWeModalExport.addEventListener('click', lcExportByWe);
+
+  function lcExportWeCsv(rows, weDate){
+    const headers = ['Employee ID','Driver','Position','Week Ending','Licence Expiry Date','Days Remaining','Status'];
+    const csvRows = [headers];
+    for (const r of rows) csvRows.push([r.employeeId, r.name, r.position, r.weDate, r.expireDate, r.days, r.status]);
+    const csvContent = csvRows.map(row => row.map(lcCsvEscape).join(',')).join('\r\n');
+    const blob = new Blob(['\ufeff' + csvContent], { type:'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `licence-checkup-WE-${weDate}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function lcExportWeColored(rows, weDate){
+    const rowColor = (r) => r.statusKey === 'expired' ? '#F7D0D0' : r.statusKey === 'nodate' ? '#E6E9EC'
+      : r.statusKey === 'expiring' ? '#FCF3E0' : '#E8F6ED';
+    const headers = ['Employee ID','Driver','Position','Week Ending','Licence Expiry Date','Days Remaining','Status'];
+    let body = '';
+    for (const r of rows){
+      const bg = rowColor(r);
+      const cells = [r.employeeId, r.name, r.position, r.weDate, r.expireDate, r.days, r.status];
+      body += `<tr style="background:${bg};">` +
+        cells.map(v => `<td style="background:${bg};border:1px solid #ccc;padding:4px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${lcEsc(v)}</td>`).join('') +
+        `</tr>`;
+    }
+    const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+<x:Name>Licence Checkup WE</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+<body><table>
+<tr>${headers.map(h => `<th style="background:#1F2E3F;color:#fff;border:1px solid #ccc;padding:5px 8px;font-family:Calibri,Arial,sans-serif;font-size:11pt;">${lcEsc(h)}</th>`).join('')}</tr>
+${body}
+</table></body></html>`;
+    const blob = new Blob([html], { type:'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `licence-checkup-WE-${weDate}-colored.xls`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
