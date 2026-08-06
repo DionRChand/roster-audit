@@ -6079,7 +6079,11 @@ ${body}
       const g = glNormHeader(row1[i]);
       const s = glNormHeader(row2[i]);
       if (g) group = g;
-      labels.push(s ? `${group} ${s}`.trim() : group);
+      // some columns repeat the same text on both header rows (e.g. "CLIENT" / "CLIENT",
+      // "Candidate ID" / "Candidate ID") rather than a real group+sub-label pair (e.g.
+      // "HOURS" / "Total"). Concatenating those verbatim produces "client client" and
+      // breaks column detection, so collapse to a single label when they match.
+      labels.push(s ? (s === group ? group : `${group} ${s}`.trim()) : group);
     }
     const find = (label) => labels.indexOf(label);
     return {
