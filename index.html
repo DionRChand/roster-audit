@@ -1641,6 +1641,10 @@
               <div class="num" id="statShort">0</div>
               <div class="label">Short shift &lt;4h</div>
             </div>
+            <div class="stat" style="border-top-color:#0CBBC1;">
+              <div class="num" id="statCorrected">0</div>
+              <div class="label">Corrected</div>
+            </div>
             <div class="stat clean">
               <div class="num" id="statClean">0</div>
               <div class="label">Clean rows</div>
@@ -1653,6 +1657,7 @@
               <div class="chip" data-filter="missing">Missing punch</div>
               <div class="chip" data-filter="equal">In = Out</div>
               <div class="chip" data-filter="short">Short shift</div>
+              <div class="chip" data-filter="corrected">Corrected</div>
               <div class="chip" data-filter="excluded">Excluded clients</div>
               <input type="text" class="search" id="searchBox" placeholder="Search employee or client…">
             </div>
@@ -4455,7 +4460,7 @@
     if (!sb){
       badge.className = 'cell-save-badge warn show';
       badge.textContent = 'Saved locally — DB not connected';
-      if (field === 'correctedIn' || field === 'correctedOut') refreshRowVisual(row);
+      if (field === 'correctedIn' || field === 'correctedOut') render(); else refreshRowVisual(row);
       return;
     }
     if (!row.employee || !row.shiftDateISO || !row.shiftStart){
@@ -4479,7 +4484,10 @@
       badge.className = 'cell-save-badge success show';
       badge.textContent = 'Saved';
       setTimeout(() => { badge.classList.remove('show'); }, 1800);
-      if (field === 'correctedIn' || field === 'correctedOut') refreshRowVisual(row);
+      // a filled-in correction moves the row from the flagged pile into the Corrected
+      // pile, so it needs a full re-render (not just a row-level visual refresh) to
+      // actually disappear from "All flagged" and update the stat counts.
+      if (field === 'correctedIn' || field === 'correctedOut') render(); else refreshRowVisual(row);
     }catch(err){
       badge.className = 'cell-save-badge error show';
       badge.textContent = 'Save failed — ' + (err.message || 'unknown error');
@@ -4777,24 +4785,29 @@
     const flagged = getFlaggedRows();
     const activeFlagged = flagged.filter(r => !isClientExcluded(r.client));
     const excludedFlagged = flagged.filter(r => isClientExcluded(r.client));
-    const missingCount = activeFlagged.filter(r => r.flags.includes('missing')).length;
-    const equalCount = activeFlagged.filter(r => r.flags.includes('equal')).length;
-    const shortCount = activeFlagged.filter(r => r.flags.includes('short')).length;
+    const correctedRows = activeFlagged.filter(hasCorrection);
+    const uncorrectedFlagged = activeFlagged.filter(r => !hasCorrection(r));
+    const missingCount = uncorrectedFlagged.filter(r => r.flags.includes('missing')).length;
+    const equalCount = uncorrectedFlagged.filter(r => r.flags.includes('equal')).length;
+    const shortCount = uncorrectedFlagged.filter(r => r.flags.includes('short')).length;
     const cleanCount = allRows.length - flagged.length;
 
     document.getElementById('statTotal').textContent = allRows.length;
     document.getElementById('statMissing').textContent = missingCount;
     document.getElementById('statEqual').textContent = equalCount;
     document.getElementById('statShort').textContent = shortCount;
+    document.getElementById('statCorrected').textContent = correctedRows.length;
     document.getElementById('statClean').textContent = cleanCount;
 
     let visible;
     if (currentFilter === 'excluded'){
       visible = excludedFlagged;
+    } else if (currentFilter === 'corrected'){
+      visible = correctedRows;
     } else if (currentFilter === 'all'){
-      visible = activeFlagged;
+      visible = uncorrectedFlagged;
     } else {
-      visible = activeFlagged.filter(r => r.flags.includes(currentFilter));
+      visible = uncorrectedFlagged.filter(r => r.flags.includes(currentFilter));
     }
     if (currentSearch){
       visible = visible.filter(r =>
@@ -4809,6 +4822,8 @@
     if (!visible.length){
       const emptyMsg = currentFilter === 'excluded'
         ? 'No flagged shifts from excluded clients — nothing hidden right now.'
+        : currentFilter === 'corrected'
+        ? 'No corrected shifts yet — fill in a Corrected In/Out time on a flagged row and it\u2019ll move here.'
         : `No flagged shifts match this view. ${flagged.length===0 ? 'Every shift has clean clock in/out data.' : 'Try a different filter or search.'}`;
       tableWrap.innerHTML = `<div class="empty-state">${emptyMsg}</div>`;
       document.getElementById('footerNote').textContent = '';
@@ -4854,9 +4869,15 @@
     html += `</tbody></table>`;
     tableWrap.innerHTML = html;
 
+    const footerBase = currentFilter === 'excluded' ? excludedFlagged.length
+      : currentFilter === 'corrected' ? correctedRows.length
+      : uncorrectedFlagged.length;
+    const footerNoun = currentFilter === 'excluded' ? 'excluded-client shift' : currentFilter === 'corrected' ? 'corrected shift' : 'flagged shift';
+    const footerSuffix = currentFilter === 'all' ? ' still needing attention' : '';
     document.getElementById('footerNote').textContent =
-      `Showing ${visible.length} of ${activeFlagged.length} flagged shift${activeFlagged.length===1?'':'s'} (${allRows.length} total in file)` +
-      (excludedFlagged.length ? ` — ${excludedFlagged.length} more hidden from excluded client${excludedFlagged.length===1?'':'s'}` : '');
+      `Showing ${visible.length} of ${footerBase} ${footerNoun}${footerBase===1?'':'s'}${footerSuffix} (${allRows.length} total in file)` +
+      (currentFilter === 'all' && correctedRows.length ? ` — ${correctedRows.length} already corrected` : '') +
+      (currentFilter !== 'excluded' && excludedFlagged.length ? ` — ${excludedFlagged.length} more hidden from excluded client${excludedFlagged.length===1?'':'s'}` : '');
   }
 
   function fmtDuration(mins){
