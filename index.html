@@ -4196,7 +4196,7 @@
 
   // Whether a row has a saved correction (used for row color + tag override).
   function hasCorrection(r){
-    return !!(r.correctedIn && r.correctedIn.trim()) || !!(r.correctedOut && r.correctedOut.trim());
+    return !!(r.correctedIn && r.correctedIn.trim()) && !!(r.correctedOut && r.correctedOut.trim());
   }
 
   // Single source of truth for a row's background class — used both on initial render
