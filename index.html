@@ -1599,10 +1599,13 @@
           <p class="sub">Flagged rows for these clients are hidden from the results below (still in the file, just filtered out of view):</p>
           <div class="lc-position-list" id="exclClientList"></div>
           <div class="lc-add-position-row">
-            <input type="text" id="exclClientInput" placeholder="Type a client name…" list="exclClientDatalist" autocomplete="off">
+            <input type="text" id="exclClientInput" placeholder="Type client names, comma-separated…" list="exclClientDatalist" autocomplete="off">
             <datalist id="exclClientDatalist"></datalist>
             <button class="btn ghost" id="exclClientAddBtn" type="button">Exclude</button>
           </div>
+          <p class="sub" style="margin:12px 0 6px;">Or pick several from the current file (Ctrl/Cmd-click, or Shift-click for a range):</p>
+          <select id="exclMultiSelect" multiple size="6" style="width:100%; border:1.5px solid var(--line); border-radius:7px; padding:6px; font-size:12.5px; font-family:inherit;"></select>
+          <button class="btn ghost" id="exclMultiAddBtn" type="button" style="width:100%; margin-top:8px;">Exclude selected</button>
         </div>
       </aside>
 
@@ -4669,6 +4672,8 @@
   const exclClientInput = document.getElementById('exclClientInput');
   const exclClientAddBtn = document.getElementById('exclClientAddBtn');
   const exclClientDatalist = document.getElementById('exclClientDatalist');
+  const exclMultiSelect = document.getElementById('exclMultiSelect');
+  const exclMultiAddBtn = document.getElementById('exclMultiAddBtn');
 
   function normClient(s){ return String(s || '').trim().toLowerCase(); }
   function isClientExcluded(client){ return excludedClients.has(normClient(client)); }
@@ -4697,22 +4702,29 @@
     `).join('') || '<span class="muted" style="font-size:12px;">No clients excluded.</span>';
   }
 
-  async function addExcludedClient(rawName){
-    const name = String(rawName || '').trim();
-    if (!name) return;
-    const norm = normClient(name);
-    if (excludedClients.has(norm)) return;
-    excludedClients.add(norm);
-    excludedDisplay.set(norm, name);
+  async function addExcludedClients(rawNames){
+    const uniqueNew = [];
+    (Array.isArray(rawNames) ? rawNames : [rawNames]).forEach(rawName => {
+      const name = String(rawName || '').trim();
+      if (!name) return;
+      const norm = normClient(name);
+      if (excludedClients.has(norm)) return;
+      excludedClients.add(norm);
+      excludedDisplay.set(norm, name);
+      uniqueNew.push(name);
+    });
+    if (!uniqueNew.length) return;
     renderExcludedChips();
     if (allRows.length) render();
     if (sb){
       try{
-        const { error } = await sb.from('roster_excluded_clients').upsert([{ client: name }], { onConflict:'client' });
+        const payload = uniqueNew.map(name => ({ client: name }));
+        const { error } = await sb.from('roster_excluded_clients').upsert(payload, { onConflict:'client' });
         if (error) throw error;
       }catch(err){ console.error(err); }
     }
   }
+  function addExcludedClient(rawName){ return addExcludedClients([rawName]); }
 
   async function removeExcludedClient(name){
     const norm = normClient(name);
@@ -4728,19 +4740,34 @@
     }
   }
 
-  exclClientAddBtn.addEventListener('click', () => { addExcludedClient(exclClientInput.value); exclClientInput.value = ''; });
+  function parseClientNames(text){
+    return String(text || '').split(',').map(s => s.trim()).filter(Boolean);
+  }
+  exclClientAddBtn.addEventListener('click', () => { addExcludedClients(parseClientNames(exclClientInput.value)); exclClientInput.value = ''; });
   exclClientInput.addEventListener('keydown', e => {
-    if (e.key === 'Enter'){ e.preventDefault(); addExcludedClient(exclClientInput.value); exclClientInput.value = ''; }
+    if (e.key === 'Enter'){ e.preventDefault(); addExcludedClients(parseClientNames(exclClientInput.value)); exclClientInput.value = ''; }
   });
   exclClientList.addEventListener('click', e => {
     const btn = e.target.closest('[data-exclremove]');
     if (btn) removeExcludedClient(btn.dataset.exclremove);
+  });
+  exclMultiAddBtn.addEventListener('click', () => {
+    const selected = Array.from(exclMultiSelect.selectedOptions).map(o => o.value);
+    if (!selected.length) return;
+    addExcludedClients(selected);
+    Array.from(exclMultiSelect.options).forEach(o => { o.selected = false; });
   });
   renderExcludedChips();
 
   function refreshExclDatalist(){
     const uniqueClients = Array.from(new Set(allRows.map(r => r.client).filter(Boolean))).sort();
     exclClientDatalist.innerHTML = uniqueClients.map(c => `<option value="${escapeHtml(c)}">`).join('');
+    const prevSelected = new Set(Array.from(exclMultiSelect.selectedOptions).map(o => o.value));
+    exclMultiSelect.innerHTML = uniqueClients.map(c => {
+      const already = isClientExcluded(c);
+      const sel = prevSelected.has(c) ? ' selected' : '';
+      return `<option value="${escapeHtml(c)}"${sel}>${escapeHtml(c)}${already ? ' (excluded)' : ''}</option>`;
+    }).join('');
   }
 
   function render(){
